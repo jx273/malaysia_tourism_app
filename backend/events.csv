@@ -1,4 +1,4 @@
-event_id,name,description,category,price
-evt101,Pasar Karat JB,A popular night market in Johor Bahru.,Market,Free
-evt102,Desaru Fruit Farm,An award-winning agro-tourism site.,Nature,RM 30
-evt103,Kota Tinggi Firefly Park,Watch beautiful fireflies along the river.,Nature,RM 20
+event_id,name,description,category,address,latitude,longitude,start_date,end_date,opening_time,closing_time,price,image_url,recommendation_reason
+evt101,Pasar Karat JB,A popular night market in Johor Bahru.,Market,"Jalan Segget, 80000 Johor Bahru",1.458,103.764,"","",20:00,02:00,Free,,A vibrant local experience.
+evt102,Desaru Fruit Farm,An award-winning agro-tourism site.,Nature,"92, 82200 Desaru, Johor",1.594,104.225,2026-01-01,2026-12-31,09:00,18:00,RM 30,https://example.com/desaru.jpg,Great for families.
+evt103,Kota Tinggi Firefly Park,Watch beautiful fireflies along the river.,Nature,"Jalan Kota Tinggi, 81900 Kota Tinggi",1.73,103.89,2026-01-01,2026-12-31,19:30,22:00,RM 20,,A magical evening experience.
