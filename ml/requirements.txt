@@ -1,0 +1,12 @@
+# Data & AI track - pinned dependencies.
+# Tested with Python 3.13.14 on Windows 11. Install into ml/.venv:
+#   python -m venv .venv
+#   .venv/Scripts/activate        (Windows)  |  source .venv/bin/activate  (macOS/Linux)
+#   pip install -r requirements.txt
+
+pandas==3.0.5
+numpy==2.5.3
+pyarrow==25.0.1
+matplotlib==3.11.2
+scikit-learn==1.9.1
+jupyter==1.1.1
