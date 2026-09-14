@@ -4,13 +4,18 @@ import 'package:flutter/material.dart';
 enum MascotType { tapir, tiger }
 
 enum MascotAction {
-  idleFront(0),   
-  idleBack(1),    
-  walkDown(2),    
-  walkUp(3),      
-  walkLeft(4),   
-  walkRight(5), 
-  happy(10);      
+  idleFront(0),
+  idleBack(1),
+  walkDown(2),
+  walkUp(3),
+  walkLeft(4),
+  walkRight(5),
+  peek(6),
+  textboxPeek(7),
+  yawn(8),
+  confused(9),
+  happy(10),
+  coverEyes(11);
 
   final int rowIndex;
   const MascotAction(this.rowIndex);
@@ -19,12 +24,12 @@ enum MascotAction {
 class PixelMascot extends StatefulWidget {
   final MascotType type;
   final MascotAction action;
-  final double size; 
-  final bool animate; 
+  final double size;
+  final bool animate;
 
   const PixelMascot({
     super.key,
-    this.type = MascotType.tapir,
+    this.type = MascotType.tiger,
     this.action = MascotAction.idleFront,
     this.size = 54,
     this.animate = true,
@@ -45,7 +50,7 @@ class _PixelMascotState extends State<PixelMascot> {
       _timer = Timer.periodic(const Duration(milliseconds: 180), (timer) {
         if (mounted) {
           setState(() {
-            _currentFrame = (_currentFrame + 1) % 4; 
+            _currentFrame = (_currentFrame + 1) % 4;
           });
         }
       });
@@ -74,7 +79,7 @@ class _PixelMascotState extends State<PixelMascot> {
           alignment: Alignment.topLeft,
           minWidth: 256 * scale,
           maxWidth: 256 * scale,
-          minHeight: 768 * scale, 
+          minHeight: 768 * scale,
           maxHeight: 768 * scale,
           child: Transform.translate(
             offset: Offset(
@@ -83,7 +88,7 @@ class _PixelMascotState extends State<PixelMascot> {
             ),
             child: Image.asset(
               assetPath,
-              filterQuality: FilterQuality.none, 
+              filterQuality: FilterQuality.none,
             ),
           ),
         ),
