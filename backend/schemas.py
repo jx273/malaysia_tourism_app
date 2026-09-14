@@ -3,14 +3,10 @@ from typing import List, Optional
 from datetime import date
 
 # ---------------------------------
-#  Pydantic 模型 (Schemas)
-# ---------------------------------
-#  - 这些模型定义了 API 的数据应该是什么样子
-#  - 它们与数据库模型 (models.py) 是分开的
+#  Pydantic Schemas - 定义 API 数据的形状
 # ---------------------------------
 
-
-# --- Event Schemas ---
+# --- App 内容 (Events) 相关的 Schemas ---
 
 class EventBase(BaseModel):
     """所有 Event 模型共享的基础字段"""
@@ -29,42 +25,47 @@ class EventBase(BaseModel):
     image_url: Optional[str] = None
     recommendation_reason: Optional[str] = None
 
-
 class EventCreate(EventBase):
-    """
-    【这就是之前缺失的模型】
-    在创建新 Event 时，API 请求体 (Request Body) 需要遵循这个格式。
-    它继承了 EventBase 的所有字段。
-    """
-    pass # Pass 意味着它和 EventBase 有完全相同的字段
-
+    """创建新 Event 时，API 请求体需要遵循的格式"""
+    pass
 
 class Event(EventBase):
-    """
-    在从 API 读取/返回 Event 数据时，遵循这个格式。
-    它增加了数据库自动生成的 'id' 字段。
-    """
+    """从 API 读取/返回 Event 数据时遵循的格式"""
     id: int
-    
-    # Pydantic v2 的配置, 替代了 orm_mode
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- Recommendation Schemas ---
+# --- Dashboard 核心 API 相关的 Schemas ---
+
+class StateTourismStatsBase(BaseModel):
+    """所有州级统计数据共享的基础字段"""
+    state: str
+    year: int
+    visitor_count: Optional[int] = None
+    tourism_revenue: Optional[float] = None
+    gdp: Optional[float] = None
+    cpi: Optional[float] = None
+    hotel_count: Optional[int] = None
+
+class StateTourismStats(StateTourismStatsBase):
+    """从 API 读取/返回州级统计数据时遵循的格式"""
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- 旧版 AI 推荐相关的 Schemas ---
 
 class RecommendationRequest(BaseModel):
-    """AI 推荐接口的请求格式"""
+    """旧版推荐接口的请求格式"""
     lat: float
     lng: float
     travel_date: str
     interests: List[str]
 
-
 class RecommendedEvent(BaseModel):
-    """AI 推荐接口的返回格式"""
+    """旧版推荐接口的返回格式"""
     event_id: str
     name: str
     category: Optional[str] = None
     image_url: Optional[str] = None
     match_score: float
-

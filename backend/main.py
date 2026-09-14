@@ -1,41 +1,29 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
-# 导入我们自己创建的模块
 import models
 import schemas
 import crud
 from database import SessionLocal, engine
 
 # --- 初始化 ---
-
-# 这行代码会告诉 SQLAlchemy 根据 models.py 的定义, 在数据库里创建所有表
-# 如果表已经存在, 它不会重复创建
+# 这行代码会根据 models.py 的定义，创建所有表 (events 和 state_tourism_stats)
 models.Base.metadata.create_all(bind=engine)
 
-# 创建 FastAPI 应用实例
 app = FastAPI(
     title="DOSM Datathon 2026 - Tourism App Backend",
-    description="为柔佛旅游探索 App 提供数据支持的 API",
-    version="0.4.0",
+    description="为柔佛旅游探索 App 和数据看板提供支持的 API",
+    version="0.5.0",
 )
 
-
-# ---------------------------------
-#  依赖项 (Dependency)
-# ---------------------------------
+# --- 依赖项 (Dependency) ---
 def get_db():
-    """
-    这个函数会被每个 API 接口调用。
-    它会创建一个数据库连接 (Session)，并在 API 请求处理完成后自动关闭它。
-    """
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
 
 # ---------------------------------
 #  API 接口 (Endpoints)
@@ -43,85 +31,59 @@ def get_db():
 
 @app.get("/")
 def read_root():
-    """
-    根路径，用于测试服务器是否正常运行。
-    """
-    return {"message": "后端服务器 v0.4 已成功启动！"}
+    return {"message": "后端服务器 v0.5 已成功启动，已加入 Dashboard 支持！"}
 
 
-# --- 活动 (Events) 相关的接口 ---
+# --- Dashboard 相关的核心接口 (新！) ---
 
-@app.post("/events/", response_model=schemas.Event, tags=["Events"])
-def create_new_event(event: schemas.EventCreate, db: Session = Depends(get_db)):
+@app.get("/dashboard/state-stats", response_model=List[schemas.StateTourismStats], tags=["Dashboard Core API"])
+def get_all_state_tourism_stats(db: Session = Depends(get_db)):
     """
-    创建一个新的活动 (Event)。
-    
-    - **event_id**: 活动的唯一 ID (例如 "evt001")
-    - **name**: 活动名称
-    - **description**: 活动的详细描述 (可选)
+    【新的核心 API】获取所有州份的历年旅游统计数据。
+    这是为 Dashboard 提供主要数据的接口。
     """
-    # 检查 event_id 是否已经在数据库中存在
-    db_event = crud.get_event_by_id(db, event_id=event.event_id)
-    if db_event:
-        raise HTTPException(status_code=400, detail="Event ID already registered")
-    
-    # 调用 crud.py 里的函数来创建并保存到数据库
-    return crud.create_event(db=db, event=event)
+    # TODO: 等我们把州级数据导入后，这里才会返回真实数据。
+    stats = db.query(models.StateTourismStats).all()
+    return stats
 
 
-@app.get("/events/", response_model=List[schemas.Event], tags=["Events"])
-def read_events(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+# --- App 内容相关的接口 (优先级降低) ---
+
+@app.get("/app/events", response_model=List[schemas.Event], tags=["App Content (Events)"])
+def read_events_for_app(skip: int = 0, limit: int = 100, search: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    读取活动列表，支持分页。
-    
-    - **skip**: 跳过前 N 条记录
-    - **limit**: 最多返回 N 条记录
+    【为 App 服务】读取精选活动列表，支持分页和搜索。
     """
-    events = crud.get_events(db, skip=skip, limit=limit)
+    events = crud.get_events(db, skip=skip, limit=limit, search=search)
     return events
 
-
-@app.get("/events/{event_id}", response_model=schemas.Event, tags=["Events"])
-def read_event(event_id: str, db: Session = Depends(get_db)):
-    """
-    通过 event_id 获取单个活动的详细信息。
-    """
+@app.get("/app/events/{event_id}", response_model=schemas.Event, tags=["App Content (Events)"])
+def read_single_event_for_app(event_id: str, db: Session = Depends(get_db)):
+    """【为 App 服务】获取单个精选活动的详细信息。"""
     db_event = crud.get_event_by_id(db, event_id=event_id)
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
     return db_event
 
 
-# --- AI 推荐相关的接口 ---
+# --- 内部使用的接口 (从公开文档中隐藏) ---
 
-@app.post("/recommend", response_model=List[schemas.RecommendedEvent], tags=["AI Recommendation"])
-def get_recommendations(request: schemas.RecommendationRequest):
-    """
-    接收用户的偏好，返回 AI 推荐的活动结果。
-    
-    - **lat/lng**: 用户当前位置
-    - **travel_date**: 用户的旅行日期
-    - **interests**: 用户的兴趣标签列表 (例如 ["culture", "food"])
-    """
-    print(f"收到推荐请求: {request.dict()}")
+@app.post("/internal/create-event", response_model=schemas.Event, include_in_schema=False)
+def create_new_event_internal(event: schemas.EventCreate, db: Session = Depends(get_db)):
+    """【内部使用】创建一个新的“精选活动”"""
+    db_event = crud.get_event_by_id(db, event_id=event.event_id)
+    if db_event:
+        raise HTTPException(status_code=400, detail="Event ID already registered")
+    return crud.create_event(db=db, event=event)
 
-    # --- 假的 AI 推荐逻辑 (之后这里会调用 YiYu 的模型) ---
-    # 目前我们直接返回一个硬编码的假结果，方便 JiaXuan 开发界面
+
+# --- 已降级的 AI 接口 ---
+
+@app.post("/legacy/recommend", response_model=List[schemas.RecommendedEvent], tags=["Legacy AI (Not Core)"])
+def get_simple_recommendations(request: schemas.RecommendationRequest):
+    """【旧版功能】基于规则的简单推荐。"""
     mock_recommendations = [
-        {
-            "event_id": "evt001",
-            "name": "柔佛古庙游神",
-            "category": "Cultural",
-            "image_url": "https://example.com/chingay.jpg",
-            "match_score": 0.94
-        },
-        {
-            "event_id": "evt002",
-            "name": "新山乐高乐园",
-            "category": "Theme Park",
-            "image_url": "https://example.com/legoland.jpg",
-            "match_score": 0.82
-        }
+        {"event_id": "evt101", "name": "Pasar Karat JB", "match_score": 0.9},
+        {"event_id": "evt102", "name": "Desaru Fruit Farm", "match_score": 0.8}
     ]
     return mock_recommendations
-

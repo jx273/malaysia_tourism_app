@@ -1,17 +1,14 @@
 from sqlalchemy import Column, Integer, String, Float, Date
 from database import Base
 
-# 这是定义 "events" 这张表在数据库里真正拥有的所有列 (columns)
+# --- 表 1: 为 App 提供内容的“精选活动”表 ---
 class Event(Base):
     __tablename__ = "events"
 
-    # --- 核心字段 ---
-    id = Column(Integer, primary_key=True, index=True) # 数据库自动生成的唯一 ID
-    event_id = Column(String, unique=True, index=True) # 我们自己定义的活动 ID, e.g., "evt001"
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(String, unique=True, index=True)
     name = Column(String, index=True)
     description = Column(String, nullable=True)
-
-    # --- 详细信息字段 (v0.2 版本后添加) ---
     category = Column(String, nullable=True)
     address = Column(String, nullable=True)
     latitude = Column(Float, nullable=True)
@@ -23,3 +20,17 @@ class Event(Base):
     price = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     recommendation_reason = Column(String, nullable=True)
+
+# --- 表 2: 【新】为 Dashboard 提供核心分析数据的“州级统计”表 ---
+class StateTourismStats(Base):
+    __tablename__ = "state_tourism_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    state = Column(String, index=True)
+    year = Column(Integer, index=True)
+    visitor_count = Column(Integer, nullable=True)
+    tourism_revenue = Column(Float, nullable=True)
+    gdp = Column(Float, nullable=True)
+    cpi = Column(Float, nullable=True)
+    hotel_count = Column(Integer, nullable=True)
+    # ... 我们可以根据 YiYu 最终的数据集，在这里添加更多列 ...
