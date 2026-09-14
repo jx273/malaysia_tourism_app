@@ -19,3 +19,10 @@ ngrok.exe
 # Ignore user-specific IDE settings
 .vscode/
 .idea/
+
+# Flutter cache & build outputs
+.dart_tool/
+build/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
