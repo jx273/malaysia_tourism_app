@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_events.dart';
 import '../models/tourism_event.dart';
 import 'event_detail_screen.dart';
+import '../widgets/pixel_mascot.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -166,6 +167,34 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         );
                       }),
+                      Builder(
+                        builder: (context) {
+                          const recentId = 'e1'; 
+                          final coord = _getMapCoordinates(recentId);
+                          return Positioned(
+                            left: coord.dx - 20,
+                            top: coord.dy - 44, 
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '📍 You were here',
+                                  style: TextStyle(
+                                    color: Color(0xFF34D399),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                PixelMascot(
+                                  type: MascotType.tapir,
+                                  action: MascotAction.idleFront, 
+                                  size: 34,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),

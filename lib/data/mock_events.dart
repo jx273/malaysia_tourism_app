@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/tourism_event.dart';
+import '../widgets/pixel_mascot.dart';
 
 class MockEventRepository {
   static final List<TourismEvent> events = [
@@ -114,5 +115,20 @@ class PlanRepository {
       currentList.sort((a, b) => a.date.compareTo(b.date));
     }
     savedEvents.value = currentList;
+  }
+}
+
+class MascotSettings {
+  static final MascotSettings instance = MascotSettings._internal();
+  MascotSettings._internal();
+
+  final ValueNotifier<MascotType> currentMascot = ValueNotifier<MascotType>(MascotType.tapir);
+
+  void toggleMascot() {
+    if (currentMascot.value == MascotType.tapir) {
+      currentMascot.value = MascotType.tiger;
+    } else {
+      currentMascot.value = MascotType.tapir;
+    }
   }
 }
