@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../data/mock_events.dart';
+import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
 import '../widgets/pixel_mascot.dart';
+import '../widgets/walking_mascot.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final TourismEvent event;
@@ -30,95 +32,100 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        return ValueListenableBuilder<MascotType>(
+          valueListenable: UserSettings.instance.selectedMascot,
+          builder: (context, currentMascot, _) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const PixelMascot(
-                    type: MascotType.tapir,
-                    action: MascotAction.idleFront,
-                    size: 42,
+                  Row(
+                    children: [
+                      PixelMascot(
+                        type: currentMascot,
+                        action: MascotAction.happy,
+                        size: 44,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              currentMascot == MascotType.tiger ? 'Tiger Cub Guide' : 'Ollie the Tapir',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Text(
+                              'Ask me anything about ${event.title}!',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Ollie the Guide',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        Text(
-                          'Ask me anything about ${event.title}!',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                        ),
-                      ],
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(
+                        backgroundColor: const Color(0xFF1E293B),
+                        label: const Text('Best time to visit?', style: TextStyle(color: Colors.white, fontSize: 11)),
+                        side: const BorderSide(color: Color(0xFF334155)),
+                        onPressed: () {},
+                      ),
+                      ActionChip(
+                        backgroundColor: const Color(0xFF1E293B),
+                        label: const Text('Is it crowded?', style: TextStyle(color: Colors.white, fontSize: 11)),
+                        side: const BorderSide(color: Color(0xFF334155)),
+                        onPressed: () {},
+                      ),
+                      ActionChip(
+                        backgroundColor: const Color(0xFF1E293B),
+                        label: const Text('Wheelchair accessible?', style: TextStyle(color: Colors.white, fontSize: 11)),
+                        side: const BorderSide(color: Color(0xFF334155)),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Ask guide about this activity...',
+                      hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      filled: true,
+                      fillColor: const Color(0xFF1E293B),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: const Icon(Icons.send, color: Color(0xFF007A3D), size: 18),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ActionChip(
-                    backgroundColor: const Color(0xFF1E293B),
-                    label: const Text('Best time to visit?', style: TextStyle(color: Colors.white, fontSize: 11)),
-                    side: const BorderSide(color: Color(0xFF334155)),
-                    onPressed: () {},
-                  ),
-                  ActionChip(
-                    backgroundColor: const Color(0xFF1E293B),
-                    label: const Text('Is it crowded?', style: TextStyle(color: Colors.white, fontSize: 11)),
-                    side: const BorderSide(color: Color(0xFF334155)),
-                    onPressed: () {},
-                  ),
-                  ActionChip(
-                    backgroundColor: const Color(0xFF1E293B),
-                    label: const Text('Wheelchair accessible?', style: TextStyle(color: Colors.white, fontSize: 11)),
-                    side: const BorderSide(color: Color(0xFF334155)),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Ask Ollie about this activity...',
-                  hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                  filled: true,
-                  fillColor: const Color(0xFF1E293B),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  suffixIcon: const Icon(Icons.send, color: Color(0xFF007A3D), size: 18),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -171,18 +178,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             ),
                           ),
                           flexibleSpace: FlexibleSpaceBar(
-                            background: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.network(
-                                  event.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    color: Colors.grey.shade200,
-                                    child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                                  ),
-                                ),
-                              ],
+                            background: Image.network(
+                              event.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                              ),
                             ),
                           ),
                         ),
@@ -221,7 +223,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 12),
-
                                 Text(
                                   event.title,
                                   style: const TextStyle(
@@ -231,7 +232,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 14),
-
                                 Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
@@ -267,9 +267,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-
                                 const SizedBox(height: 20),
-
                                 const Text(
                                   'Why Recommended',
                                   style: TextStyle(
@@ -304,9 +302,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     ],
                                   ),
                                 ),
-
                                 const SizedBox(height: 20),
-
                                 const Text(
                                   'About This Experience',
                                   style: TextStyle(
@@ -324,7 +320,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                     height: 1.6,
                                   ),
                                 ),
-                                const SizedBox(height: 40),
+                                const SizedBox(height: 80),
                               ],
                             ),
                           ),
@@ -332,7 +328,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       ],
                     ),
                   ),
-
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -360,46 +355,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
                 ],
               ),
-
-              // 右下角浮动的小向导提问挂件
               Positioned(
-                right: 16,
+                left: 0,
+                right: 0,
                 bottom: 80,
-                child: GestureDetector(
-                  onTap: () => _openMascotChat(context, event),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF007A3D), width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.12),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PixelMascot(
-                          type: MascotType.tapir,
-                          action: MascotAction.idleFront,
-                          size: 34,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Ask Ollie',
-                          style: TextStyle(
-                            color: Color(0xFF007A3D),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                child: SizedBox(
+                  height: 100,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      WalkingMascot(
+                        speechText: 'Ask about event',
+                        onTap: () => _openMascotChat(context, event),
+                      ),
+                    ],
                   ),
                 ),
               ),
