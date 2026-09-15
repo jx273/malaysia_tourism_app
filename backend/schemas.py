@@ -29,6 +29,22 @@ class EventCreate(EventBase):
     """创建新 Event 时，API 请求体需要遵循的格式"""
     pass
 
+class EventUpdate(BaseModel):
+    """【新】更新 Event 时，所有字段都是可选的"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    opening_time: Optional[str] = None
+    closing_time: Optional[str] = None
+    price: Optional[str] = None
+    image_url: Optional[str] = None
+    recommendation_reason: Optional[str] = None
+
 class Event(EventBase):
     """从 API 读取/返回 Event 数据时遵循的格式"""
     id: int
