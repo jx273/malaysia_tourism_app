@@ -4,6 +4,7 @@ import 'explore_screen.dart';
 import 'map_screen.dart';
 import 'my_plan_screen.dart';
 import 'ai_recommend_screen.dart';
+import '../widgets/walking_mascot.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -26,7 +27,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: Stack(
+        children: [
+          _screens[_currentIndex],
+
+          if (_currentIndex == 0)
+            WalkingMascot(
+              onTap: () {
+                setState(() {
+                  _currentIndex = 4; 
+                });
+              },
+            ),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

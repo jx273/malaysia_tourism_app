@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_events.dart';
 import '../widgets/event_card.dart';
 import 'event_detail_screen.dart';
-
+import 'settings_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -52,6 +52,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined, color: Color(0xFF007A3D)),
+            tooltip: 'Settings & Profile',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(

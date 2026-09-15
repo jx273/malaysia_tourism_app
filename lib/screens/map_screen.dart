@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/mock_events.dart';
+import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
+import '../widgets/pixel_mascot.dart';
 import 'event_detail_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -53,7 +55,7 @@ class _MapScreenState extends State<MapScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF34D399).withValues(alpha: 0.15),
+                  color: const Color(0xFF34D399).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFF34D399)),
                 ),
@@ -89,7 +91,7 @@ class _MapScreenState extends State<MapScreen> {
                       Image.network(
                         'https://raw.githubusercontent.com/djaiss/mapsicon/master/all/my/vector.svg.png',
                         fit: BoxFit.contain,
-                        color: const Color(0xFF334155), 
+                        color: const Color(0xFF334155),
                         colorBlendMode: BlendMode.srcIn,
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: const Color(0xFF1E293B),
@@ -134,7 +136,7 @@ class _MapScreenState extends State<MapScreen> {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: (isCleared ? const Color(0xFF34D399) : Colors.black).withValues(alpha: 0.5),
+                                        color: (isCleared ? const Color(0xFF34D399) : Colors.black).withOpacity(0.5),
                                         blurRadius: 8,
                                       ),
                                     ],
@@ -149,7 +151,7 @@ class _MapScreenState extends State<MapScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.7),
+                                    color: Colors.black.withOpacity(0.7),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -166,6 +168,44 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                         );
                       }),
+
+                      ValueListenableBuilder<MascotType>(
+                        valueListenable: UserSettings.instance.selectedMascot,
+                        builder: (context, currentMascot, _) {
+                          final coord = _getMapCoordinates('e1');
+                          return Positioned(
+                            left: coord.dx - 18,
+                            top: coord.dy - 46,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.75),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF34D399), width: 1),
+                                  ),
+                                  child: const Text(
+                                    'You were here',
+                                    style: TextStyle(
+                                      color: Color(0xFF34D399),
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                PixelMascot(
+                                  type: currentMascot,
+                                  action: MascotAction.idleFront,
+                                  size: 36,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -192,7 +232,7 @@ class _MapScreenState extends State<MapScreen> {
                             : Colors.white24,
                       ),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16),
+                        BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 16),
                       ],
                     ),
                     child: Column(
@@ -284,13 +324,13 @@ class _MapScreenState extends State<MapScreen> {
 
   static Offset _getMapCoordinates(String id) {
     switch (id) {
-      case 'e1': 
+      case 'e1':
         return const Offset(42, 115);
-      case 'e3': 
+      case 'e3':
         return const Offset(75, 185);
-      case 'e2': 
+      case 'e2':
         return const Offset(205, 235);
-      case 'e4': 
+      case 'e4':
         return const Offset(335, 120);
       default:
         return const Offset(100, 100);
@@ -309,7 +349,7 @@ class FogMaskPainter extends CustomPainter {
     canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
 
     final fogPaint = Paint()
-      ..color = const Color(0xFF0F172A).withValues(alpha: 0.85)
+      ..color = const Color(0xFF0F172A).withOpacity(0.85)
       ..style = PaintingStyle.fill;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), fogPaint);
 
