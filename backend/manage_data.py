@@ -1,6 +1,5 @@
 import csv
 from sqlalchemy.orm import Session
-from datetime import datetime
 import os
 
 import crud
@@ -8,15 +7,26 @@ import schemas
 from database import SessionLocal, engine
 import models
 
-# (The import_events function remains the same)
 def import_events(db: Session, file_path: str):
     print("\n--- 正在导入【精选活动】---")
-    # ... (code is unchanged)
+    try:
+        with open(file_path, mode='r', encoding='utf-8') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            for row in csv_reader:
+                try:
+                    if crud.get_event_by_id(db, event_id=row['event_id']):
+                        continue
+                    event_data = schemas.EventCreate(**row)
+                    crud.create_event(db=db, event=event_data)
+                except Exception:
+                    continue
+        print("  -> 【精选活动】导入完成。")
+    except FileNotFoundError:
+        print(f"  -> 警告: 未找到 {file_path}，跳过活动导入。")
 
 def import_state_stats(db: Session, file_path: str):
     print("\n--- 正在导入【最终州级统计和预测数据】---")
     try:
-        # First, delete all old stats to make way for the new master data
         db.query(models.StateTourismStats).delete()
         db.commit()
         print("  -> 已删除所有旧的州级统计数据。")
@@ -25,9 +35,7 @@ def import_state_stats(db: Session, file_path: str):
             csv_reader = csv.DictReader(csv_file)
             for row in csv_reader:
                 try:
-                    # Convert boolean string to actual boolean
                     is_holdout = True if row.get('is_holdout_year', '').lower() == 'true' else False
-                    
                     stat_data = schemas.StateTourismStatsBase(
                         state=row.get('state'),
                         year=int(row['year']) if row.get('year') else None,
@@ -45,7 +53,7 @@ def import_state_stats(db: Session, file_path: str):
                     print(f"  -> !!! 错误 !!! 在处理行 {row.get('state')}-{row.get('year')} 时发生: {e}。跳过此行。")
         print(f"  -> 成功从 {file_path} 导入数据。")
     except FileNotFoundError:
-        print(f"  -> 警告: 未找到 {file_path}。请确保你已经切换到 feature/data-ai 分支并从根目录运行。")
+        print(f"  -> 警告: 未找到 {file_path}。")
 
 def reset_database():
     print("\n--- 正在重置数据库 ---")
@@ -59,22 +67,13 @@ if __name__ == "__main__":
     print("==========================================")
     print("       数据管理与导入脚本")
     print("==========================================")
-    user_choice = input(
-        "请选择操作:\n"
-        "  1. 重置数据库并导入所有数据 (Reset & Import All)\n"
-        "  2. 退出 (Exit)\n"
-        "请输入选项 (1/2): "
-    )
-    if user_choice == '1':
-        reset_database()
-        # Note: We run this from the backend/ directory, so we go up one level
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        predictions_file = os.path.join(project_root, 'ml', 'handoff', 'for_hongyik', 'sample_predictions.csv')
-        
-        import_events(db, "events.csv")
-        import_state_stats(db, predictions_file)
-        print("\n操作完成！")
-    else:
-        print("\n已退出，未执行任何操作。")
-
+    print("自动执行：重置数据库并导入所有数据。")
+    reset_database()
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(backend_dir)
+    events_file = os.path.join(backend_dir, 'events.csv')
+    predictions_file = os.path.join(project_root, 'ml', 'handoff', 'for_hongyik', 'sample_predictions.csv')
+    import_events(db, events_file)
+    import_state_stats(db, predictions_file)
+    print("\n操作完成！")
     db.close()
