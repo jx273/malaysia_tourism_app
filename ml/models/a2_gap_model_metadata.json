@@ -1,0 +1,54 @@
+{
+  "created": "2026-09-16",
+  "phase": 8,
+  "purpose": "Model A2 - structural expected demand; the opportunity gap is expected minus actual",
+  "family": "GradientBoosting",
+  "params": {
+    "n_estimators": 400,
+    "max_depth": 2,
+    "learning_rate": 0.03,
+    "min_samples_leaf": 3,
+    "subsample": 1.0
+  },
+  "features": [
+    "log_population",
+    "log_gdp_total",
+    "log_gdp_services",
+    "services_share",
+    "log_gdp_per_capita",
+    "log_rooms",
+    "rooms_per_1k_residents",
+    "log_lf_employed",
+    "u_rate",
+    "p_rate",
+    "cpi_accom_food_rel",
+    "cpi_recreation_rel"
+  ],
+  "target": "log_visitors",
+  "target_units": "log of domestic visitors in thousands",
+  "trained_on_years": [
+    2017,
+    2018,
+    2019,
+    2023
+  ],
+  "n_training_rows": 58,
+  "holdout_years": [
+    2024,
+    2025
+  ],
+  "selection": {
+    "method": "rolling-origin folds",
+    "folds": [
+      2018,
+      2019,
+      2023
+    ],
+    "mean_MAE_log": 0.13726485628182222,
+    "worst_fold_MAE_log": 0.20349041971998705,
+    "mean_train_MAE_log": 0.017274014480932704
+  },
+  "baseline_mean_MAE_log": 0.3569,
+  "random_state": 42,
+  "sklearn_version": "1.9.1"
+}
