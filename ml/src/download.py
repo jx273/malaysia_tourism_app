@@ -85,6 +85,15 @@ SOURCES += [
     ("water_consumption_state", "https://storage.data.gov.my/water/water_consumption.csv"),
 ]
 
+# D10 - Monthly foreign arrivals by state of entry, from the data.gov.my catalogue
+#       (https://data.gov.my/data-catalogue/arrivals_soe), source: Imigresen.
+#       Outside OpenDOSM; approved separately on 2026-09-16. It records the point of
+#       ENTRY, which the catalogue notes may not be the visitor's final destination,
+#       so it is kept out of the state-year analysis panel.
+SOURCES += [
+    ("arrivals_state_of_entry", "https://storage.data.gov.my/demography/arrivals_soe.csv"),
+]
+
 
 def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()

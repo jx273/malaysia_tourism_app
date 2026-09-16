@@ -53,10 +53,11 @@ state-level context that joins onto them.
 | D7 | Annual Real GDP by State & Sector | OpenDOSM data catalogue | **State** | Annual | **2015 – 2025** | 1 csv + lookup | Economic |
 | D8 | Quarterly Labour Force by State | OpenDOSM data catalogue | **State** | Quarterly | **2017 Q1 – 2025 Q3** | 1 csv | Social |
 | D9 | Water Consumption by State & Sector | OpenDOSM data catalogue | **State** (14 of 16) | Annual | **2003 – 2022** | 1 csv | Environmental |
+| D10 | Monthly Arrivals by State of Entry | data.gov.my catalogue | **State of entry** (14 of 16) | Monthly | **2020-01 – 2024-10** | 1 csv | Economic (inbound) |
 
-Totals: **61 files, 33.62 MB, 59 distinct contents** (3 quarterly files are byte-identical;
-see D3). Largest file: `population_state.csv`, 12.568 MB. All figures from the
-`download.py` run and a SHA-256 pass over `data/raw/` on 2026-09-13.
+Totals: **62 files, 36.41 MB** (3 quarterly files are byte-identical; see D3). Largest
+file: `population_state.csv`, 12.568 MB. Figures from the `download.py` runs of
+2026-09-13 (61 files) and 2026-09-16 (D10 added).
 
 ---
 
@@ -115,9 +116,9 @@ see D3). Largest file: `population_state.csv`, 12.568 MB. All figures from the
   - Tables 2–7, 11–13: two most recent years per edition
 - **Last updated:** 2025 edition released 2026-06-16; HTTP Last-Modified 2026-06-16
 - **Notes for Phase 2:**
-  - In the rows inspected, overlapping years agree across editions (e.g. Johor 2017 =
-    13,140.64 thousand and 2019 = 14,274 in both the 2023 and 2024 editions).
-    [not computed for all cells]
+  - Now computed in full by `src/clean.py`: all **128** overlapping state-year cells agree
+    across editions, largest relative disagreement **0.0000%**
+    (see `reports/02_cleaning.md` §4).
   - The 2024 edition's Table 9 carries extra trailing cells per row (a value in units rather
     than thousands, a rank-like integer, and the state name repeated). These must be dropped.
   - The 2024 edition's Table 10 sheet has 45 non-empty rows against 22 in the other editions,
@@ -267,13 +268,37 @@ see D3). Largest file: `population_state.csv`, 12.568 MB. All figures from the
 - **Role:** the only state-level environmental time series in the catalogue. Monthly
   `air_pollution` was considered and rejected because it has no state column.
 
+## D10 — Monthly Arrivals by State of Entry, Nationality & Sex
+
+- **Publisher:** Jabatan Imigresen Malaysia (Imigresen), via the data.gov.my catalogue
+- **Catalogue URL:** `https://data.gov.my/data-catalogue/arrivals_soe`
+- **File URL:** `https://storage.data.gov.my/demography/arrivals_soe.csv`
+- **Local path:** `data/raw/arrivals_state_of_entry/arrivals_soe.csv` (2.791 MB,
+  SHA-256 `2fe08e05c0249154`)
+- **Approved:** 2026-09-16. This is the one file outside OpenDOSM.
+- **Geographic granularity:** state **of entry**, and only **14 of the 16 states** appear —
+  W.P. Kuala Lumpur and W.P. Putrajaya have no entry point of their own.
+- **Time granularity:** Monthly
+- **Time range (measured):** **2020-01-01 – 2024-10-01**, 58 months
+- **Last updated:** 2024-11-25 16:00. The catalogue lists the next update as 2024-12-25,
+  which has not happened.
+- **Shape:** 92,674 rows × 6 columns; 224 nationalities.
+- **⚠️ Two limitations that keep it out of the analysis panel:**
+  1. The catalogue's own field description says the state of entry "may not be their final
+     destination". KLIA is in Sepang, Selangor, so arrivals credited to Selangor include
+     visitors bound for Kuala Lumpur. It measures **border crossings, not destinations**.
+  2. It begins in January 2020, so there is **no pre-pandemic baseline**. Annual totals are
+     6,172k (2020), 471k (2021), 15,149k (2022), 30,515k (2023), 31,899k (2024) — the 2021
+     figure reflects border closure, not demand.
+- Cleaned to `data/processed/arrivals_state_of_entry.parquet` as a standalone table.
+
 ---
 
 ## Considered but not downloaded
 
 | Candidate | Where found | Why not downloaded |
 |---|---|---|
-| **Monthly Arrivals by State of Entry, Nationality & Sex** (`arrivals_soe`) | data.gov.my catalogue: `https://data.gov.my/data-catalogue/arrivals_soe` → `https://storage.data.gov.my/demography/arrivals_soe.csv` (2.791 MB, source: Imigresen) | **PENDING APPROVAL.** It is the only monthly, state-level, inbound-tourism series found, but it is listed on the **data.gov.my** catalogue, not OpenDOSM, so it falls outside the pre-approved download boundary. It is also stale: data as of 2024-10-31, last updated 2024-11-25, and the listed next update (2024-12-25) has not happened. |
+| **Monthly Arrivals by State of Entry** (`arrivals_soe`) | see D10 below | **Approved and downloaded on 2026-09-16.** Kept out of the state-year analysis panel; see D10. |
 | Monthly Arrivals by Nationality & Sex (`arrivals`) | data.gov.my catalogue → `https://storage.data.gov.my/demography/arrivals.csv` | National only; superseded by `arrivals_soe` if that is approved. |
 | Tourism Malaysia statistics portal | `https://data.tourism.gov.my/` (cited in DOSM's "Discover DOSM Tourism Statistics" deck) | Datasets are behind registration ("To find more, please register"); only PDFs and infographics are public. Not open and publicly accessible, as the brief requires. |
 | Domestic Tourism quarterly, 4Q 2023 – 3Q 2024 | OpenDOSM publications | PDF-only. The same quarters are already inside D3's 2026-q1 workbook. |
@@ -285,7 +310,8 @@ see D3). Largest file: `population_state.csv`, 12.568 MB. All figures from the
 
 ## Appendix — file manifest
 
-`download.py` run on 2026-09-13. All 61 files returned `downloaded`, with 0 failures.
+`download.py` runs on 2026-09-13 (61 files) and 2026-09-16 (D10). All returned
+`downloaded`, with 0 failures.
 
 | Local path (under `data/raw/`) | MB | SHA-256 (16) |
 |---|---:|---|
@@ -350,3 +376,4 @@ see D3). Largest file: `population_state.csv`, 12.568 MB. All figures from the
 | `gdp_state/gdp_lookup.csv` | 0.013 | `ca3ba2dcbe5eb455` |
 | `labour_force_state/lfs_qtr_state.csv` | 0.030 | `75e015ca77c1efd8` |
 | `water_consumption_state/water_consumption.csv` | 0.021 | `729134dcae597746` |
+| `arrivals_state_of_entry/arrivals_soe.csv` | 2.791 | `2fe08e05c0249154` |
