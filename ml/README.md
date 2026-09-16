@@ -36,6 +36,7 @@ ml/
 | 2 | [`reports/02_cleaning.md`](reports/02_cleaning.md) | Cleaning rules, joins with row counts, three validation checks, and the completeness of the analysis panel. |
 | 3 | [`notebooks/03_eda.ipynb`](notebooks/03_eda.ipynb) | Exploratory analysis; ten figures in [`reports/figures/`](reports/figures/), each with a takeaway. |
 | 4 | [`reports/04_problem_candidates.md`](reports/04_problem_candidates.md) | Three problem candidates with evidence, data sufficiency and risks, and a recommendation scored against the rubric. |
+| 5 | [`reports/05_features.md`](reports/05_features.md) | Every feature with its definition, source column and rationale; the leakage rules; and the rows lost at each stage. |
 
 ## Setup
 
