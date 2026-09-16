@@ -34,6 +34,8 @@ ml/
 | 0 | [`reports/00_brief.md`](reports/00_brief.md) | Digest of the competition brief, booklet, official site and both scoring rubrics: theme, timeline, data rules, the three deliverables, full rubric weights, and the conflicts between sources. |
 | 1 | [`data/raw/SOURCES.md`](data/raw/SOURCES.md) | Every raw dataset: catalogue URL, file URL, granularity, measured time range, last-updated date, and a file manifest with hashes. |
 | 2 | [`reports/02_cleaning.md`](reports/02_cleaning.md) | Cleaning rules, joins with row counts, three validation checks, and the completeness of the analysis panel. |
+| 3 | [`notebooks/03_eda.ipynb`](notebooks/03_eda.ipynb) | Exploratory analysis; ten figures in [`reports/figures/`](reports/figures/), each with a takeaway. |
+| 4 | [`reports/04_problem_candidates.md`](reports/04_problem_candidates.md) | Three problem candidates with evidence, data sufficiency and risks, and a recommendation scored against the rubric. |
 
 ## Setup
 
