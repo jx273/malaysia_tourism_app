@@ -37,6 +37,8 @@ ml/
 | 3 | [`notebooks/03_eda.ipynb`](notebooks/03_eda.ipynb) | Exploratory analysis; ten figures in [`reports/figures/`](reports/figures/), each with a takeaway. |
 | 4 | [`reports/04_problem_candidates.md`](reports/04_problem_candidates.md) | Three problem candidates with evidence, data sufficiency and risks, and a recommendation scored against the rubric. |
 | 5 | [`reports/05_features.md`](reports/05_features.md) | Every feature with its definition, source column and rationale; the leakage rules; and the rows lost at each stage. |
+| 6 | [`reports/06_baseline.md`](reports/06_baseline.md) | The three baselines, how each is fitted, and their error on the validation year and every rolling-origin fold. |
+| 7 | [`reports/07_model_comparison.md`](reports/07_model_comparison.md) | Four models on identical splits and metrics, single-year and rolling-origin, with training times and a recommendation. |
 
 ## Setup
 
