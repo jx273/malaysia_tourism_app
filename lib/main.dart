@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const MalaysiaTourismApp());
@@ -31,7 +32,7 @@ class MalaysiaTourismApp extends StatelessWidget {
           centerTitle: false,
         ),
       ),
-      home: const MainNavigationScreen(),
+      home: const SplashScreen(),
     );
   }
 }

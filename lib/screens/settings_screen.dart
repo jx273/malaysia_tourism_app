@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/user_settings.dart';
 import '../widgets/pixel_mascot.dart';
+import 'auth_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -77,7 +78,16 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
-                            settings.toggleLogin();
+                            if (isLoggedIn) {
+                              settings.isLoggedIn.value = false;
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AuthScreen(initialIsLogin: true),
+                                ),
+                              );
+                            }
                           },
                           child: Text(
                             isLoggedIn ? 'Log Out' : 'Sign In',

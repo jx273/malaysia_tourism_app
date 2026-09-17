@@ -3,7 +3,7 @@ import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'map_screen.dart';
 import 'my_plan_screen.dart';
-import 'ai_recommend_screen.dart';
+import 'settings_screen.dart';
 import '../widgets/walking_mascot.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -21,7 +21,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const ExploreScreen(),
     const MapScreen(),
     const MyPlanScreen(),
-    const AiRecommendScreen(),
+    const SettingsScreen(), // 第 5 个 Tab 变更为 Profile & Settings
   ];
 
   @override
@@ -30,12 +30,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: Stack(
         children: [
           _screens[_currentIndex],
-
           if (_currentIndex == 0)
             WalkingMascot(
+              speechText: 'Discover with me!',
               onTap: () {
                 setState(() {
-                  _currentIndex = 4; 
+                  _currentIndex = 1; // 点击主页小人快速切到 Explore 查看活动推荐
                 });
               },
             ),
@@ -93,9 +93,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               label: 'My Plan',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.auto_awesome_outlined),
-              activeIcon: Icon(Icons.auto_awesome),
-              label: 'AI Guide',
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile', // 原 AI Guide 位置更换为 Profile
             ),
           ],
         ),
