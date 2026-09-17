@@ -13,12 +13,22 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final Set<String> _clearedEventIds = {'e1'};
+  final Set<String> _clearedEventIds = {'e1', 'e5'};
   TourismEvent? _selectedEvent;
+  String _currentLocationId = 'e5';
 
-  void _dispelFog(String id) {
+  static const Map<String, Offset> _relativeCoords = {
+    'e1': Offset(0.19, 0.23), // Penang
+    'e3': Offset(0.34, 0.70), // Melaka
+    'e5': Offset(0.41, 0.82), // Johor
+    'e2': Offset(0.48, 0.72), // Sarawak (Kuching)
+    'e4': Offset(0.79, 0.32), // Sabah (KK)
+  };
+
+  void _unlockEvent(String id) {
     setState(() {
       _clearedEventIds.add(id);
+      _currentLocationId = id; 
       _selectedEvent = MockEventRepository.events.firstWhere((e) => e.id == id);
     });
   }
@@ -30,20 +40,17 @@ class _MapScreenState extends State<MapScreen> {
     final cleared = _clearedEventIds.length;
     final percentage = (cleared / total * 100).toInt();
 
-    const mapWidth = 380.0;
-    const mapHeight = 320.0;
-
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF060B13),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF0B1322),
         elevation: 0,
         title: const Row(
           children: [
-            Icon(Icons.radar, color: Color(0xFF34D399), size: 20),
+            Icon(Icons.explore, color: Color(0xFF00FF9D), size: 20),
             SizedBox(width: 8),
             Text(
-              'Fog of Discovery',
+              'Batik Heritage Map',
               style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
@@ -55,13 +62,13 @@ class _MapScreenState extends State<MapScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF34D399).withOpacity(0.15),
+                  color: const Color(0xFF00FF9D).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF34D399)),
+                  border: Border.all(color: const Color(0xFF00FF9D)),
                 ),
                 child: Text(
-                  '$percentage% Unlocked',
-                  style: const TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.bold),
+                  '$percentage% Explored',
+                  style: const TextStyle(color: Color(0xFF00FF9D), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -71,142 +78,143 @@ class _MapScreenState extends State<MapScreen> {
       body: Stack(
         children: [
           InteractiveViewer(
-            boundaryMargin: const EdgeInsets.all(30),
+            boundaryMargin: const EdgeInsets.all(40),
             minScale: 0.8,
-            maxScale: 2.5,
+            maxScale: 3.0,
             child: Center(
-              child: Container(
-                width: mapWidth,
-                height: mapHeight,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        'https://raw.githubusercontent.com/djaiss/mapsicon/master/all/my/vector.svg.png',
-                        fit: BoxFit.contain,
-                        color: const Color(0xFF334155),
-                        colorBlendMode: BlendMode.srcIn,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: const Color(0xFF1E293B),
-                          alignment: Alignment.center,
-                          child: const Text('Map Loading...', style: TextStyle(color: Colors.white38)),
-                        ),
-                      ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9, 
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final mapW = constraints.maxWidth;
+                      final mapH = constraints.maxHeight;
 
-                      CustomPaint(
-                        size: const Size(mapWidth, mapHeight),
-                        painter: FogMaskPainter(
-                          allEvents: allEvents,
-                          clearedIds: _clearedEventIds,
-                        ),
-                      ),
-
-                      ...allEvents.map((event) {
-                        final isCleared = _clearedEventIds.contains(event.id);
-                        final offset = _getMapCoordinates(event.id);
-
-                        return Positioned(
-                          left: offset.dx - 18,
-                          top: offset.dy - 18,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedEvent = event;
-                              });
-                            },
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: isCleared ? const Color(0xFF007A3D) : const Color(0xFF475569),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isCleared ? const Color(0xFF34D399) : Colors.white60,
-                                      width: 2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (isCleared ? const Color(0xFF34D399) : Colors.black).withOpacity(0.5),
-                                        blurRadius: 8,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    isCleared ? Icons.place : Icons.lock,
-                                    color: isCleared ? Colors.white : Colors.white70,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.7),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    isCleared ? event.state : '???',
-                                    style: TextStyle(
-                                      color: isCleared ? const Color(0xFF34D399) : Colors.white60,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            'assets/images/batik_msia_map.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: const Color(0xFF0F172A),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'Please place batik_msia_map.png in assets/images/',
+                                style: TextStyle(color: Colors.white60, fontSize: 12),
+                              ),
                             ),
                           ),
-                        );
-                      }),
 
-                      ValueListenableBuilder<MascotType>(
-                        valueListenable: UserSettings.instance.selectedMascot,
-                        builder: (context, currentMascot, _) {
-                          final coord = _getMapCoordinates('e1');
-                          return Positioned(
-                            left: coord.dx - 18,
-                            top: coord.dy - 46,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.75),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFF34D399), width: 1),
-                                  ),
-                                  child: const Text(
-                                    'You were here',
-                                    style: TextStyle(
-                                      color: Color(0xFF34D399),
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
+                          ...allEvents.map((event) {
+                            final rel = _relativeCoords[event.id] ?? const Offset(0.5, 0.5);
+                            final isCleared = _clearedEventIds.contains(event.id);
+
+                            final posX = rel.dx * mapW;
+                            final posY = rel.dy * mapH;
+
+                            return Positioned(
+                              left: posX - 16,
+                              top: posY - 16,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedEvent = event;
+                                  });
+                                },
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: isCleared ? const Color(0xFF00FF9D) : const Color(0xFF1E293B),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isCleared ? Colors.white : Colors.white54,
+                                          width: 2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: (isCleared ? const Color(0xFF00FF9D) : Colors.black).withOpacity(0.5),
+                                            blurRadius: 8,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        isCleared ? Icons.location_on : Icons.lock,
+                                        color: isCleared ? const Color(0xFF060B13) : Colors.white70,
+                                        size: 16,
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 2),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.75),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        event.state,
+                                        style: TextStyle(
+                                          color: isCleared ? const Color(0xFF00FF9D) : Colors.white60,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 2),
-                                PixelMascot(
-                                  type: currentMascot,
-                                  action: MascotAction.idleFront,
-                                  size: 36,
+                              ),
+                            );
+                          }),
+
+                          ValueListenableBuilder<MascotType>(
+                            valueListenable: UserSettings.instance.selectedMascot,
+                            builder: (context, currentMascot, _) {
+                              final rel = _relativeCoords[_currentLocationId] ?? const Offset(0.5, 0.5);
+                              final posX = rel.dx * mapW;
+                              final posY = rel.dy * mapH;
+
+                              return Positioned(
+                                left: posX - 18,
+                                top: posY - 48, 
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF060B13),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFF00FF9D), width: 1),
+                                      ),
+                                      child: const Text(
+                                        'You are here',
+                                        style: TextStyle(
+                                          color: Color(0xFF00FF9D),
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    PixelMascot(
+                                      type: currentMascot,
+                                      action: MascotAction.idleFront,
+                                      size: 36,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                              );
+                            },
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -224,11 +232,11 @@ class _MapScreenState extends State<MapScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: const Color(0xFF0F1A2A),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: _clearedEventIds.contains(_selectedEvent!.id)
-                            ? const Color(0xFF34D399)
+                            ? const Color(0xFF00FF9D)
                             : Colors.white24,
                       ),
                       boxShadow: [
@@ -257,7 +265,7 @@ class _MapScreenState extends State<MapScreen> {
                                   Text(
                                     _selectedEvent!.state,
                                     style: const TextStyle(
-                                      color: Color(0xFF34D399),
+                                      color: Color(0xFF00FF9D),
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -287,17 +295,17 @@ class _MapScreenState extends State<MapScreen> {
                           child: !_clearedEventIds.contains(_selectedEvent!.id)
                               ? ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF34D399),
-                                    foregroundColor: const Color(0xFF0F172A),
+                                    backgroundColor: const Color(0xFF00FF9D),
+                                    foregroundColor: const Color(0xFF060B13),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
-                                  icon: const Icon(Icons.flash_on, size: 16),
-                                  label: const Text('Dispel Fog (Unlock)', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  onPressed: () => _dispelFog(_selectedEvent!.id),
+                                  icon: const Icon(Icons.lock_open, size: 16),
+                                  label: const Text('Unlock Location (Travel Here)', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  onPressed: () => _unlockEvent(_selectedEvent!.id),
                                 )
                               : OutlinedButton(
                                   style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: Color(0xFF34D399)),
+                                    side: const BorderSide(color: Color(0xFF00FF9D)),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () {
@@ -308,7 +316,7 @@ class _MapScreenState extends State<MapScreen> {
                                       ),
                                     );
                                   },
-                                  child: const Text('View Destination Details', style: TextStyle(color: Color(0xFF34D399))),
+                                  child: const Text('View Experience Details', style: TextStyle(color: Color(0xFF00FF9D))),
                                 ),
                         ),
                       ],
@@ -321,52 +329,4 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
-
-  static Offset _getMapCoordinates(String id) {
-    switch (id) {
-      case 'e1':
-        return const Offset(42, 115);
-      case 'e3':
-        return const Offset(75, 185);
-      case 'e2':
-        return const Offset(205, 235);
-      case 'e4':
-        return const Offset(335, 120);
-      default:
-        return const Offset(100, 100);
-    }
-  }
-}
-
-class FogMaskPainter extends CustomPainter {
-  final List<TourismEvent> allEvents;
-  final Set<String> clearedIds;
-
-  FogMaskPainter({required this.allEvents, required this.clearedIds});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
-
-    final fogPaint = Paint()
-      ..color = const Color(0xFF0F172A).withOpacity(0.85)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), fogPaint);
-
-    final clearPaint = Paint()
-      ..blendMode = BlendMode.clear
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28);
-
-    for (final event in allEvents) {
-      if (clearedIds.contains(event.id)) {
-        final center = _MapScreenState._getMapCoordinates(event.id);
-        canvas.drawCircle(center, 42, clearPaint);
-      }
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant FogMaskPainter oldDelegate) => true;
 }
