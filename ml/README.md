@@ -3,7 +3,7 @@
 Python workspace for the Data & AI workstream. **Everything in this track lives under
 `ml/`** so that it never collides with the Flutter project in the repository root.
 
-**What it does.** Turns nine official DOSM datasets into a model that estimates how many
+**What it does.** Turns nine OpenDOSM datasets into a model that estimates how many
 domestic visitors each Malaysian state *should* receive given its population, economy and
 hotel capacity, and reports the difference from what it actually receives — measured in
 **shares of the national total**, which is what makes it comparable between states. That is
@@ -36,14 +36,14 @@ macOS or Linux:
 source .venv/bin/activate
 ```
 
-Then install the six pinned packages:
+Then install the seven pinned packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-pandas, numpy, pyarrow, matplotlib, scikit-learn, jupyter. Nothing else is needed — the Excel
-reader for DOSM's formatted reports is written on the standard library.
+pandas, numpy, pyarrow, matplotlib, scikit-learn, jupyter and joblib. Nothing else is needed
+— the Excel reader for DOSM's formatted reports is written on the standard library.
 
 ## Reproducing everything from scratch
 

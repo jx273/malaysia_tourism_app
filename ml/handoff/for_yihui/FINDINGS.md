@@ -30,8 +30,11 @@ defined — see the wording table in §8.
 
 ## 2. The data
 
-Everything is official Malaysian statistics. **Nine DOSM datasets, 62 files**, listed with
-their catalogue links in `ml/data/raw/SOURCES.md` — that file is your References section.
+Everything is official Malaysian statistics. **Nine OpenDOSM datasets** feed the model, and
+all ten datasets we downloaded (62 files) are listed with their catalogue links in
+`ml/data/raw/SOURCES.md` — that file is your References section. The tenth, monthly foreign
+arrivals, comes from data.gov.my rather than OpenDOSM; we profiled it and left it out, for
+the reasons in §6.
 
 | What | Source | Coverage |
 |---|---|---|

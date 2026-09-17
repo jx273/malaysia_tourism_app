@@ -33,7 +33,8 @@ Importing loads nothing and **trains nothing**. The model file opens lazily on t
 and is cached. All paths resolve relative to `ml/`, so the working directory does not matter
 and there are no Windows-specific paths.
 
-Requires `pandas`, `numpy`, `scikit-learn` and `joblib` — see `ml/requirements.txt`.
+Requires `pandas`, `numpy`, `scikit-learn` and `joblib` — all pinned in
+`ml/requirements.txt`.
 
 ## 3. `predict(payload: dict) -> dict`
 
@@ -97,7 +98,7 @@ predict({"state": "Johor", "year": 2025})
 | `actual_share_pct` | float \| null | percent | actual share |
 | **`opportunity_gap_pct`** | float \| null | **percent** | **the headline number.** `expected_share / actual_share − 1`. Positive = the state receives a *smaller* share than its fundamentals imply |
 | `opportunity_gap_pp` | float \| null | percentage points | `expected_share − actual_share`, for stacked or map shading |
-| `interpretation` | string | — | a plain-English sentence, safe to show a user |
+| `interpretation` | string | — | a plain-English sentence, safe to show a user. The wording switches at **±5%**: above +5% "receives a smaller share…", below −5% "receives a larger share…", and in between "receives about the share…". Treat anything inside ±5% as no finding |
 | `basis` | string | — | always "share of the national total for the same year" |
 | `model` | object | — | provenance to display in an "about" panel |
 | `warnings` | array of strings | — | **show these.** See below |
