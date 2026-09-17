@@ -106,24 +106,32 @@ should use.
 Positive = the state receives a **smaller** share of national visitors than its population,
 economy and accommodation capacity imply.
 
-| State | Actual ('000) | Expected share | Actual share | Gap (pp) | **Gap (%)** |
+| State | Actual ('000) | Benchmark ('000) | Shortfall ('000) | Gap (pp) | **Gap (%)** |
 |---|---:|---:|---:|---:|---:|
-| Kedah | 15,608 | 7.67% | 5.38% | +2.29 | **+42.6** |
-| Johor | 18,197 | 7.97% | 6.27% | +1.70 | **+27.0** |
-| Terengganu | 15,462 | 6.20% | 5.33% | +0.87 | +16.3 |
-| W.P. Labuan | 604 | 0.23% | 0.21% | +0.02 | +10.3 |
-| Pulau Pinang | 17,718 | 6.69% | 6.11% | +0.58 | +9.6 |
-| Sabah | 22,361 | 8.13% | 7.71% | +0.42 | +5.4 |
-| Negeri Sembilan | 19,357 | 7.00% | 6.67% | +0.33 | +4.9 |
-| Kelantan | 12,062 | 4.26% | 4.16% | +0.10 | +2.4 |
-| Sarawak | 22,722 | 7.87% | 7.83% | +0.03 | +0.4 |
-| Selangor | 36,376 | 11.53% | 12.54% | −1.02 | −8.1 |
-| Melaka | 20,832 | 6.46% | 7.18% | −0.72 | −10.0 |
-| Pahang | 23,161 | 7.12% | 7.98% | −0.86 | −10.8 |
-| Perak | 23,642 | 7.17% | 8.15% | −0.98 | −12.0 |
-| W.P. Kuala Lumpur | 35,060 | 9.96% | 12.09% | −2.12 | −17.6 |
-| W.P. Putrajaya | 3,146 | 0.85% | 1.08% | −0.24 | −21.7 |
-| Perlis | 3,756 | 0.89% | 1.29% | −0.41 | −31.6 |
+| Kedah | 15,608 | 22,258 | +6,650 | +2.29 | **+42.6** |
+| Johor | 18,197 | 23,119 | +4,922 | +1.70 | **+27.0** |
+| Terengganu | 15,462 | 17,984 | +2,522 | +0.87 | +16.3 |
+| W.P. Labuan | 604 | 667 | +62 | +0.02 | +10.3 |
+| Pulau Pinang | 17,718 | 19,411 | +1,693 | +0.58 | +9.6 |
+| Sabah | 22,361 | 23,577 | +1,216 | +0.42 | +5.4 |
+| Negeri Sembilan | 19,357 | 20,309 | +953 | +0.33 | +4.9 |
+| Kelantan | 12,062 | 12,357 | +295 | +0.10 | +2.4 |
+| Sarawak | 22,722 | 22,815 | +94 | +0.03 | +0.4 |
+| Selangor | 36,376 | 33,430 | −2,946 | −1.02 | −8.1 |
+| Melaka | 20,832 | 18,744 | −2,088 | −0.72 | −10.0 |
+| Pahang | 23,161 | 20,659 | −2,502 | −0.86 | −10.8 |
+| Perak | 23,642 | 20,800 | −2,842 | −0.98 | −12.0 |
+| W.P. Kuala Lumpur | 35,060 | 28,903 | −6,157 | −2.12 | −17.6 |
+| W.P. Putrajaya | 3,146 | 2,462 | −684 | −0.24 | −21.7 |
+| Perlis | 3,756 | 2,569 | −1,187 | −0.41 | −31.6 |
+
+**Benchmark** is the state's expected share applied to the year's national total. It exists
+because the raw model level cannot be shown beside an actual: anchored on the training
+years, it runs low for 2024–2025, and for **8 of the 16 states in 2025 it sat on the opposite
+side of the actual from where the gap says the state stands**. Rescaling removes that; the
+level, the shortfall and the percentage now agree in direction on all 90 published rows.
+The accuracy figures in §1 are unchanged — they are computed on the raw output, since the
+benchmark uses the year's own national total and would flatter the model.
 
 `figures/12_opportunity_gap_2025.png`
 

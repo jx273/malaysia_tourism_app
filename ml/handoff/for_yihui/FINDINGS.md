@@ -117,15 +117,21 @@ thing as the strongest tourism performance, and should not be presented as a ran
 
 For 2025, the states furthest below their model-expected share:
 
-| State | Gap |
-|---|---|
-| **Kedah** | **+42.6%** |
-| **Johor** | **+27.0%** |
-| Terengganu | +16.3% |
-| W.P. Labuan | +10.3% |
-| Pulau Pinang | +9.6% |
+| State | Actual | Benchmark | Shortfall | Gap |
+|---|---:|---:|---:|---:|
+| **Kedah** | 15.6m | 22.3m | **6.7m** | **+42.6%** |
+| **Johor** | 18.2m | 23.1m | **4.9m** | **+27.0%** |
+| Terengganu | 15.5m | 18.0m | 2.5m | +16.3% |
+| W.P. Labuan | 0.6m | 0.7m | 0.06m | +10.3% |
+| Pulau Pinang | 17.7m | 19.4m | 1.7m | +9.6% |
 
 And furthest above: Perlis −31.6%, W.P. Putrajaya −21.7%, W.P. Kuala Lumpur −17.6%.
+
+**"Benchmark" is the state's expected share applied to that year's national total**, which
+is what makes it comparable with the actual. The shortfall column is the difference. Both
+say the same thing as the percentage — they are the same number on three scales, so quote
+whichever suits the sentence. "Kedah received 6.7 million fewer domestic visitors in 2025
+than its population, economy and accommodation capacity imply" is the plainest form.
 
 **These gaps indicate lower-than-expected visitor shares given the modelled structural
 conditions. They do not identify the cause.** That sentence should follow the finding every
