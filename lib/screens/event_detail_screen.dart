@@ -1,13 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import '../data/mock_events.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import '../data/mock_events.dart';     // 补上 PlanRepository 引用
+import '../data/passport_repository.dart';
 import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
-import '../widgets/pixel_mascot.dart';
-import '../widgets/walking_mascot.dart';
+import '../widgets/mascot_chat_sheet.dart';
+import '../widgets/pixel_mascot.dart'; // 补上吉祥物引用
+import 'dart:math';
 
 class EventDetailScreen extends StatefulWidget {
   final TourismEvent event;
-
   const EventDetailScreen({super.key, required this.event});
 
   @override
@@ -15,367 +19,358 @@ class EventDetailScreen extends StatefulWidget {
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
-  late bool _isInPlan;
+  final PlanRepository _planRepo = PlanRepository.instance;
+  final ImagePicker _picker = ImagePicker();
 
-  @override
-  void initState() {
-    super.initState();
-    _isInPlan = PlanRepository.instance.isEventInPlan(widget.event.id);
-  }
-
-  void _openMascotChat(BuildContext context, TourismEvent event) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0F172A),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  // 截取静止的吉祥物帧作为贴纸
+  Widget _staticMascotSticker(MascotType type) {
+    final assetPath = type == MascotType.tapir ? 'assets/images/tapir_sheet.png' : 'assets/images/tiger_sheet.png';
+    const scale = 50.0 / 64.0;
+    return SizedBox(
+      width: 50, height: 50,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: 256.0 * scale, maxWidth: 256.0 * scale,
+          minHeight: 768.0 * scale, maxHeight: 768.0 * scale,
+          child: Image.asset(assetPath, filterQuality: FilterQuality.none),
+        ),
       ),
-      builder: (context) {
-        return ValueListenableBuilder<MascotType>(
-          valueListenable: UserSettings.instance.selectedMascot,
-          builder: (context, currentMascot, _) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      PixelMascot(
-                        type: currentMascot,
-                        action: MascotAction.happy,
-                        size: 44,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              currentMascot == MascotType.tiger ? 'Tiger Cub Guide' : 'Ollie the Tapir',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            Text(
-                              'Ask me anything about ${event.title}!',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ActionChip(
-                        backgroundColor: const Color(0xFF1E293B),
-                        label: const Text('Best time to visit?', style: TextStyle(color: Colors.white, fontSize: 11)),
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        onPressed: () {},
-                      ),
-                      ActionChip(
-                        backgroundColor: const Color(0xFF1E293B),
-                        label: const Text('Is it crowded?', style: TextStyle(color: Colors.white, fontSize: 11)),
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        onPressed: () {},
-                      ),
-                      ActionChip(
-                        backgroundColor: const Color(0xFF1E293B),
-                        label: const Text('Wheelchair accessible?', style: TextStyle(color: Colors.white, fontSize: 11)),
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        onPressed: () {},
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Ask guide about this activity...',
-                      hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                      filled: true,
-                      fillColor: const Color(0xFF1E293B),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      suffixIcon: const Icon(Icons.send, color: Color(0xFF007A3D), size: 18),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
-  void _handleTogglePlan() {
-    PlanRepository.instance.togglePlan(widget.event);
-    setState(() {
-      _isInPlan = PlanRepository.instance.isEventInPlan(widget.event.id);
-    });
+  Future<void> _takePhotoAndCheckInSafe() async {
+    String finalPhotoPath = widget.event.imageUrl; 
+    try {
+      if (Platform.isIOS || Platform.isAndroid) {
+        final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+        if (photo != null) {
+          finalPhotoPath = photo.path;
+        } else {
+          return;
+        }
+      } else {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+    } catch (e) {
+      debugPrint("Camera unavailable, using fallback.");
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isInPlan ? 'Added to your Personal Plan!' : 'Removed from your Plan',
+    if (!mounted) return;
+
+    final noteController = TextEditingController(text: "Having a great time at ${widget.event.title}!");
+    final now = DateTime.now();
+    final timeString = TimeOfDay.fromDateTime(now).format(context);
+    final dateString = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+
+    final actions = [MascotAction.happy, MascotAction.walkRight, MascotAction.idleFront];
+    final randomAction = actions[Random().nextInt(actions.length)];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFF4F1DE),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(16),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 经典手账明信片本体（所有元素都在白色卡片内）
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))],
+                ),
+                child: Column(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 3 / 4,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: finalPhotoPath.startsWith('http') 
+                                ? Image.network(finalPhotoPath, fit: BoxFit.cover)
+                                : Image.file(File(finalPhotoPath), fit: BoxFit.cover),
+                          ),
+                          // 右上角：橙色精确时间
+                          Positioned(
+                            top: 12, right: 12,
+                            child: Text(
+                              '$dateString $timeString',
+                              style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 10, fontWeight: FontWeight.w900, shadows: [Shadow(color: Colors.white, blurRadius: 3)]),
+                            ),
+                          ),
+                          // 照片内部左下角：静止吉祥物，留出边缘间隙
+                          Positioned(
+                            bottom: 12, left: 12,
+                            child: ValueListenableBuilder<MascotType>(
+                              valueListenable: UserSettings.instance.selectedMascot,
+                              builder: (_, m, __) => _staticMascotSticker(m),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 居中放大的标题
+                    Text(
+                      widget.event.title, 
+                      textAlign: TextAlign.center, 
+                      maxLines: 1, 
+                      overflow: TextOverflow.ellipsis, 
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF3D405B))
+                    ),
+                    const SizedBox(height: 12),
+                    // 输入框完全置于白色明信片内部
+                    TextField(
+                      controller: noteController,
+                      maxLines: 2,
+                      textAlign: TextAlign.center, // 文字居中
+                      style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        hintText: 'Edit your memory note...',
+                        hintStyle: TextStyle(color: const Color(0xFFE07A5F).withOpacity(0.5)),
+                        filled: true,
+                        fillColor: const Color(0xFFF4F1DE).withOpacity(0.5),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        duration: const Duration(milliseconds: 1200),
-        backgroundColor: const Color(0xFF0F172A),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.share, color: Color(0xFF3D405B)),
+                onPressed: () {
+                  Share.share('Check out my visit to ${widget.event.title}! "${noteController.text}"');
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF81B29A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  PassportRepository.instance.addMemory(
+                    PostcardMemory(
+                      id: 'mem_${DateTime.now().millisecondsSinceEpoch}',
+                      event: widget.event,
+                      note: noteController.text.trim(),
+                      checkInTime: now,
+                      userPhotoUrl: finalPhotoPath,
+                    ),
+                  );
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🎉 Saved to Passport!')));
+                  setState(() {}); 
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          )
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final event = widget.event;
-
+    final isCheckedIn = PassportRepository.instance.isCheckedIn(widget.event.id);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: CustomScrollView(
-                      slivers: [
-                        SliverAppBar(
-                          expandedHeight: 250,
-                          pinned: true,
-                          leading: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: CircleAvatar(
-                              backgroundColor: Colors.white.withOpacity(0.85),
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 18),
-                                onPressed: () => Navigator.pop(context),
-                              ),
+      backgroundColor: const Color(0xFFF4F1DE),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 280,
+                pinned: true,
+                backgroundColor: const Color(0xFFF4F1DE),
+                leading: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.white.withOpacity(0.8),
+                    child: IconButton(icon: const Icon(Icons.arrow_back, color: Color(0xFF3D405B)), onPressed: () => Navigator.pop(context)),
+                  ),
+                ),
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Image.network(widget.event.imageUrl, fit: BoxFit.cover),
+                ),
+              ),
+              
+              SliverToBoxAdapter(
+                child: Transform.translate(
+                  offset: const Offset(0, -24), 
+                  child: Container(
+                    // 修复缝隙：将 top padding 从 24 加大到 36，拉开安全距离
+                    padding: const EdgeInsets.fromLTRB(20, 36, 20, 100),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF4F1DE), 
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: const Color(0xFF3D405B), borderRadius: BorderRadius.circular(6)),
+                              child: Text(widget.event.category, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                             ),
-                          ),
-                          flexibleSpace: FlexibleSpaceBar(
-                            background: Image.network(
-                              event.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: Colors.grey.shade200,
-                                child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                              ),
-                            ),
+                            Text(widget.event.priceInMyr == 0 ? 'Free Entry' : 'RM ${widget.event.priceInMyr.toInt()}', style: const TextStyle(color: Color(0xFF81B29A), fontWeight: FontWeight.w900, fontSize: 14)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(widget.event.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF3D405B), height: 1.2)),
+                        const SizedBox(height: 24),
+
+                        _infoRow(Icons.place, 'Address', widget.event.address),
+                        const SizedBox(height: 12),
+                        _infoRow(Icons.calendar_today, 'Dates', '${widget.event.startDate?.toString().split(' ')[0]} to ${widget.event.endDate?.toString().split(' ')[0]}'),
+                        const SizedBox(height: 12),
+                        _infoRow(Icons.access_time, 'Operating Hours', '${widget.event.openingTime ?? "09:00"} - ${widget.event.closingTime ?? "18:00"}'),
+                        const SizedBox(height: 24),
+
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(color: const Color(0xFFF2CC8F).withOpacity(0.4), borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.format_quote, color: Color(0xFFE07A5F), size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(widget.event.recommendationReason, style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 13, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold))),
+                            ],
                           ),
                         ),
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF007A3D).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        event.category,
-                                        style: const TextStyle(
-                                          color: Color(0xFF007A3D),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      event.priceInMyr == 0 ? 'Free Entry' : 'RM ${event.priceInMyr.toStringAsFixed(0)}',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF007A3D),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  event.title,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: Colors.grey.shade200),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.place_outlined, size: 16, color: Color(0xFF007A3D)),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              '${event.location}, ${event.state}',
-                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Divider(height: 20, color: Colors.grey.shade100),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.calendar_today_outlined, size: 15, color: Color(0xFF007A3D)),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${event.date.day}/${event.date.month}/${event.date.year}  at  ${event.time}',
-                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                const Text(
-                                  'Why Recommended',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFBFDBFE)),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Icon(Icons.auto_awesome, color: Color(0xFF2563EB), size: 16),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          event.recommendationReason,
-                                          style: const TextStyle(
-                                            color: Color(0xFF1E40AF),
-                                            fontSize: 12,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                const Text(
-                                  'About This Experience',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  event.description,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade700,
-                                    fontSize: 13,
-                                    height: 1.6,
-                                  ),
-                                ),
-                                const SizedBox(height: 80),
-                              ],
-                            ),
-                          ),
-                        ),
+                        const SizedBox(height: 24),
+                        const Text('About this experience', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF3D405B))),
+                        const SizedBox(height: 12),
+                        Text(widget.event.description, style: const TextStyle(color: Colors.black87, height: 1.6, fontSize: 13)),
                       ],
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
-                    ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isInPlan ? const Color(0xFF0F172A) : const Color(0xFF007A3D),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        icon: Icon(_isInPlan ? Icons.check : Icons.add, size: 18),
-                        label: Text(
-                          _isInPlan ? 'Added to My Plan (Tap to Remove)' : 'Add to Personal Plan',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        onPressed: _handleTogglePlan,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 80,
-                child: SizedBox(
-                  height: 100,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      WalkingMascot(
-                        speechText: 'Ask about event',
-                        onTap: () => _openMascotChat(context, event),
-                      ),
-                    ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
+
+          // 详情页小老虎（彻底不走动，只呼吸待机）
+          Positioned(
+            right: 16,
+            bottom: 100, 
+            child: GestureDetector(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  barrierColor: Colors.black.withOpacity(0.3),
+                  builder: (_) => MascotChatSheet(currentEvent: widget.event),
+                );
+              },
+              child: ValueListenableBuilder<MascotType>(
+                valueListenable: UserSettings.instance.selectedMascot,
+                builder: (_, mascot, __) => Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE07A5F), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)]),
+                  // 这里用 idleFront 取代 happy，它不会手舞足蹈，非常安静
+                  child: PixelMascot(type: mascot, action: MascotAction.idleFront, size: 40),
+                ),
+              ),
+            ),
+          ),
+
+          // 底部 50/50 均分操作区 (完美贴合你的颜色要求)
+          Positioned(
+            left: 0, right: 0, bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+              decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, -5))]),
+              child: Row(
+                children: [
+                  // 左边：Check-in 绿 / Snap Again 黄
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isCheckedIn ? const Color(0xFFF2CC8F) : const Color(0xFF81B29A),
+                        foregroundColor: isCheckedIn ? const Color(0xFF3D405B) : Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      icon: Icon(isCheckedIn ? Icons.camera_alt : Icons.camera_alt_outlined, size: 20),
+                      label: Text(isCheckedIn ? 'Snap Again' : 'Check-in', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                      onPressed: _takePhotoAndCheckInSafe, 
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 右边：永远红色的收藏键，大小完全对等
+                  Expanded(
+                    child: ValueListenableBuilder<List<TourismEvent>>(
+                      valueListenable: _planRepo.savedEvents,
+                      builder: (_, saved, __) {
+                        final inPlan = _planRepo.isEventInPlan(widget.event.id);
+                        return ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE07A5F), // 红色
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                          ),
+                          icon: Icon(inPlan ? Icons.bookmark : Icons.bookmark_border, size: 20),
+                          label: Text(inPlan ? 'Saved' : 'Add to Plan', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                          onPressed: () => _planRepo.togglePlan(widget.event),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String title, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade400),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 13, color: Color(0xFF3D405B), fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

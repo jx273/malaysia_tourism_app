@@ -1,10 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import 'explore_screen.dart';
-import 'map_screen.dart';
 import 'my_plan_screen.dart';
+import 'map_screen.dart';
+import 'passport_screen.dart';
 import 'settings_screen.dart';
-import '../widgets/walking_mascot.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -16,90 +16,101 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const ExploreScreen(),
-    const MapScreen(),
-    const MyPlanScreen(),
-    const SettingsScreen(), // 第 5 个 Tab 变更为 Profile & Settings
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    MyPlanScreen(),
+    MapScreen(),
+    PassportScreen(),
+    SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          _screens[_currentIndex],
-          if (_currentIndex == 0)
-            WalkingMascot(
-              speechText: 'Discover with me!',
-              onTap: () {
-                setState(() {
-                  _currentIndex = 1; // 点击主页小人快速切到 Explore 查看活动推荐
-                });
-              },
+      backgroundColor: const Color(0xFFF4F1DE), // 暖调奶油底色
+      extendBody: true, // 让页面内容可以沉到导航栏下方（配合毛玻璃）
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.98, end: 1.0).animate(animation),
+              child: child,
             ),
-        ],
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_currentIndex),
+          child: _screens[_currentIndex],
+        ),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Colors.grey.shade200, width: 1),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3D405B).withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, -3),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                // 1. 去掉固定高度，改用纵向 Padding 自然撑开
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.75), // 苹果风磨砂半透明
+                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                ),
+                child: BottomNavigationBar(
+                  currentIndex: _currentIndex,
+                  onTap: (index) => setState(() => _currentIndex = index),
+                  type: BottomNavigationBarType.fixed,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  selectedItemColor: const Color(0xFFE07A5F),
+                  unselectedItemColor: const Color(0xFF3D405B).withOpacity(0.4),
+                  showSelectedLabels: false,
+                  showUnselectedLabels: false,
+                  // 2. 将图标尺寸从默认的 24 统一设定，避免撑破容器
+                  iconSize: 26, 
+                  items: [
+                    _navItem(Icons.home_filled, Icons.home_outlined),
+                    _navItem(Icons.calendar_today, Icons.calendar_today_outlined),
+                    _navItem(Icons.explore, Icons.explore_outlined),
+                    _navItem(Icons.photo_album, Icons.photo_album_outlined),
+                    _navItem(Icons.person, Icons.person_outline),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          selectedItemColor: const Color(0xFF007A3D),
-          unselectedItemColor: const Color(0xFF64748B),
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined),
-              activeIcon: Icon(Icons.explore),
-              label: 'Explore',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined),
-              activeIcon: Icon(Icons.map),
-              label: 'Map',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today_outlined),
-              activeIcon: Icon(Icons.calendar_today),
-              label: 'My Plan',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile', // 原 AI Guide 位置更换为 Profile
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  BottomNavigationBarItem _navItem(IconData active, IconData inactive) {
+    return BottomNavigationBarItem(
+      icon: Icon(inactive, size: 26),
+      activeIcon: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE07A5F).withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(active, size: 26),
+      ),
+      label: '',
     );
   }
 }

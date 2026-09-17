@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'main_navigation_screen.dart';
+import '../data/mock_events.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,6 +29,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
+    MockEventRepository.fetchEventsFromBackend();
+    
     // 停留 1.2 秒后启动扩散散开动画
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
