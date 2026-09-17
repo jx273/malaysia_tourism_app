@@ -5,8 +5,9 @@ Python workspace for the Data & AI workstream. **Everything in this track lives 
 
 **What it does.** Turns nine official DOSM datasets into a model that estimates how many
 domestic visitors each Malaysian state *should* receive given its population, economy and
-hotel capacity, and reports the difference from what it actually receives — the **Tourism
-Opportunity Gap**.
+hotel capacity, and reports the difference from what it actually receives — measured in
+**shares of the national total**, which is what makes it comparable between states. That is
+the **relative Tourism Opportunity Gap**.
 
 **Headline result.** On two years the model had never seen, it reduces error by **40.7%**
 against a sensible baseline: MAE_log 0.2648 against 0.4467, MAPE 22.5% against 41.4%. Details

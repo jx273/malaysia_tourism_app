@@ -30,8 +30,9 @@ ranked list of states with a quantified shortfall, which is the form a budget ar
 - `figures/04_volume_vs_intensity.png` — volume and intensity are different rankings.
   W.P. Putrajaya sees 26.1 visitors per resident and Melaka 19.8, against Selangor 4.9 and
   Johor 4.3: a 6.0x spread invisible in a volume ranking.
-- `figures/03_concentration.png` — six years including a pandemic did not redistribute
-  domestic tourism, so the gap is persistent rather than a one-year artefact.
+- `figures/03_concentration.png` — the top-three share returned to almost the same level in
+  2025 (32.8%) as in 2019 (32.7%), which suggests the gap is persistent rather than a
+  one-year artefact. Only those two endpoints were compared.
 - `figures/07_correlation_matrix.png` — the size predictors are collinear (0.541 to 0.992),
   which constrains the model family.
 

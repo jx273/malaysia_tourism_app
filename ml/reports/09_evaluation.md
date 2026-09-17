@@ -155,9 +155,11 @@ Permutation importance on the holdout, 30 repeats:
 
 - **Five size variables carry the model**: population, GDP, employment, rooms, services GDP.
   Population alone is more than twice the next feature.
-- **The two CPI features contribute nothing** (0.0000 and −0.0010, both inside their own
-  standard deviation). Price level does not explain where domestic visitors go, at least at
-  state-year resolution. That is a finding worth one line in the report, not a failure.
+- **The two CPI features contributed close to zero** (0.0000 and −0.0010, both inside their
+  own standard deviation). This is a statement about *this model and this feature set*, not
+  about price in general: CPI divisions 09 and 11 are **resident** consumer price indices for
+  each state, not measures of tourism prices, so nothing here shows that price is irrelevant
+  to an individual traveller's decision. Worth one carefully worded line in the report.
 - **Importance is shared, not attributed.** Phase 3 measured pairwise correlations to 0.992
   among these size variables, so permutation importance spreads credit among substitutes.
   No single coefficient should be quoted as "population causes X% of visits".
