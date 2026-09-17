@@ -53,8 +53,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/tapir_sheet.png
-    - assets/images/tiger_sheet.png
+    - assets/images/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
