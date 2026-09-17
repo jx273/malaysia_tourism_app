@@ -58,6 +58,15 @@ class _PixelMascotState extends State<PixelMascot> {
   }
 
   @override
+  void didUpdateWidget(covariant PixelMascot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 动作改变时重置帧，避免切动作闪烁
+    if (oldWidget.action != widget.action) {
+      _currentFrame = 0;
+    }
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
@@ -71,24 +80,29 @@ class _PixelMascotState extends State<PixelMascot> {
 
     final scale = widget.size / 64.0;
 
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topLeft,
-          minWidth: 256 * scale,
-          maxWidth: 256 * scale,
-          minHeight: 768 * scale,
-          maxHeight: 768 * scale,
-          child: Transform.translate(
-            offset: Offset(
-              -_currentFrame * 64.0 * scale,
-              -widget.action.rowIndex * 64.0 * scale,
-            ),
-            child: Image.asset(
-              assetPath,
-              filterQuality: FilterQuality.none,
+    return RepaintBoundary(
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: ClipRect(
+          // 彻底抛弃之前的 _PixelClipper，直接用标准的 ClipRect
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: 256.0 * scale,
+            maxWidth: 256.0 * scale,
+            minHeight: 768.0 * scale,
+            maxHeight: 768.0 * scale,
+            child: Transform.translate(
+              // 精准偏移
+              offset: Offset(
+                -_currentFrame * 64.0 * scale,
+                -widget.action.rowIndex * 64.0 * scale,
+              ),
+              child: Image.asset(
+                assetPath,
+                filterQuality: FilterQuality.none, 
+                fit: BoxFit.fill, // 强制拉满，防止因为亚像素渲染导致溢出别的帧
+              ),
             ),
           ),
         ),
