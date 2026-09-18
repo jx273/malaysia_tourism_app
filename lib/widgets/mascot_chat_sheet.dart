@@ -1,5 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';          
+import 'package:google_generative_ai/google_generative_ai.dart'; 
+import '../services/api_service.dart';
 import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
 import 'pixel_mascot.dart';
@@ -33,18 +36,97 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
     }
   }
 
-  void _send(String text) {
+      void _send(String text) async {
     if (text.trim().isEmpty) return;
+
     setState(() {
       _messages.add({'role': 'user', 'text': text});
-      _messages.add({
-        'role': 'ai',
-        'text': widget.currentEvent != null
-            ? 'Regarding "${widget.currentEvent!.title}": ${widget.currentEvent!.recommendationReason}. Operating time is ${widget.currentEvent!.openingTime ?? "09:00 AM"}. Have a wonderful visit!'
-            : 'For "$text", I recommend checking out Pasar Karat JB for vibrant night culture, or Desaru Fruit Farm for family eco-tourism!',
-      });
+      _messages.add({'role': 'ai', 'text': 'Ollie is thinking... 🐯💭'});
     });
     _controller.clear();
+
+    try {
+      final apiKey = dotenv.env['GEMINI_API_KEY'];
+      if (apiKey == null) throw Exception('API Key not found in .env');
+      
+      // 使用稳定低延迟的 Flash 模型
+      final model = GenerativeModel(model: 'gemini-3.1-flash-lite', apiKey: apiKey);
+
+      if (widget.currentEvent == null) {
+        // 判断用户是否只是在打招呼/日常闲聊
+        final isGreeting = RegExp(r'^(hi|hello|hey|how are you|你好|早安|午安)', caseSensitive: false).hasMatch(text.trim());
+
+        String prompt;
+
+        if (isGreeting) {
+          prompt = '''
+          You are Ollie, a friendly, warm tiger mascot for the JalanJalan sustainable tourism app in Malaysia.
+          The user just greeted you with: "$text".
+          Respond politely, introduce yourself briefly in 1-2 friendly sentences, and ask how you can help them explore Malaysia sustainably.
+          Use 1 cute emoji.
+          ''';
+        } else {
+          // 用户寻求推荐，清理标签中的 emoji 字符
+          String interest = text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+
+          final results = await ApiService.getAiRecommendations(
+            lat: 1.45,
+            lng: 103.76,
+            interests: [interest.isEmpty ? 'General' : interest],
+          );
+
+          // 将后端拿到的全部候选地点整理成摘要文本
+          String candidatesSummary = results.map((e) {
+            return "- ${e['name']} (Match Score: ${((e['match_score'] ?? 0) * 100).toInt()}%)";
+          }).join("\n");
+
+          prompt = '''
+          You are Ollie, an eco-conscious tiger mascot for a Malaysia travel app.
+          User input: "$text".
+          
+          Here are available destination options evaluated by our backend data model:
+          $candidatesSummary
+          
+          Instructions:
+          1. Pick the destination that BEST fits the user's category (e.g. if Nature, pick Farm or Firefly, NOT Night Market).
+          2. Explain in 2 sentences why it's worth visiting and how it helps avoid tourist overcrowding.
+          3. Mention the match score. Keep the tone fun and encouraging.
+          ''';
+        }
+
+        final response = await model.generateContent([Content.text(prompt)]);
+
+        setState(() {
+          _messages.removeLast();
+          _messages.add({'role': 'ai', 'text': response.text ?? 'Roar! How can I help you explore?'});
+        });
+
+      } else {
+        // 详情页逻辑：针对当前点击的 event 进行单点问答
+        final prompt = '''
+        You are Ollie, a travel companion. The user is browsing "${widget.currentEvent!.title}".
+        Location: ${widget.currentEvent!.address ?? 'Johor'}
+        Price: RM ${widget.currentEvent!.priceInMyr.toInt()}
+        Hours: ${widget.currentEvent!.openingTime ?? '09:00'} - ${widget.currentEvent!.closingTime ?? '22:00'}
+        Summary: ${widget.currentEvent!.description}
+
+        User inquiry: "$text".
+        Reply concisely in 1-2 sentences using this context.
+        ''';
+
+        final response = await model.generateContent([Content.text(prompt)]);
+
+        setState(() {
+          _messages.removeLast();
+          _messages.add({'role': 'ai', 'text': response.text ?? 'Have a wonderful visit!'});
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _messages.removeLast();
+        _messages.add({'role': 'ai', 'text': 'Oops, Ollie is taking a quick nap! 🐯💤 ($e)'});
+      });
+    }
   }
 
   @override
@@ -65,7 +147,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF3D405B).withOpacity(0.2),
+                color: const Color(0xFF3D405B).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -84,7 +166,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                     ),
                     child: ValueListenableBuilder<MascotType>(
                       valueListenable: UserSettings.instance.selectedMascot,
-                      builder: (_, mascot, __) => PixelMascot(type: mascot, action: MascotAction.happy, size: 38),
+                      builder: (_, mascot, _) => PixelMascot(type: mascot, action: MascotAction.happy, size: 38),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -119,7 +201,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                 ],
               ),
             ),
-            Divider(height: 1, color: const Color(0xFF3D405B).withOpacity(0.1)),
+            Divider(height: 1, color: const Color(0xFF3D405B).withValues(alpha: 0.1)),
 
             // 快捷提问胶囊
             SingleChildScrollView(
@@ -160,7 +242,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
@@ -195,7 +277,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.white, width: 1.5),
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8),
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8),
                           ],
                         ),
                         child: TextField(
@@ -203,7 +285,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                           style: const TextStyle(color: Color(0xFF3D405B), fontSize: 14, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Ask Ollie for sustainable travel tips...',
-                            hintStyle: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.4), fontSize: 13),
+                            hintStyle: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.4), fontSize: 13),
                             border: InputBorder.none,
                           ),
                           onSubmitted: _send,
@@ -239,8 +321,8 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
           text,
           style: const TextStyle(fontSize: 11, color: Color(0xFF3D405B), fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white.withOpacity(0.75),
-        side: BorderSide(color: const Color(0xFF3D405B).withOpacity(0.15)),
+        backgroundColor: Colors.white.withValues(alpha: 0.75),
+        side: BorderSide(color: const Color(0xFF3D405B).withValues(alpha: 0.15)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         onPressed: () => _send(text),
       ),

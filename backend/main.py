@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from fastapi.middleware.cors import CORSMiddleware
 
 import models
 import schemas
@@ -15,6 +16,15 @@ app = FastAPI(
     title="DOSM Datathon 2026 - Tourism App Backend",
     description="为柔佛旅游探索 App 和数据看板提供支持的 API",
     version="0.5.0",
+)
+
+# --- 添加 CORS 中间件 ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许所有来源
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有 HTTP 方法
+    allow_headers=["*"],  # 允许所有请求头
 )
 
 # --- 依赖项 (Dependency) ---

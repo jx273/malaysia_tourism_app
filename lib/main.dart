@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'data/user_settings.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_navigation_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; 
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MalaysiaTourismApp());
+  dotenv.load(fileName: ".env").then((_) {
+    runApp(const MalaysiaTourismApp());
+  });
 }
 
 class MalaysiaTourismApp extends StatelessWidget {

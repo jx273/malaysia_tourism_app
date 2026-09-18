@@ -31,7 +31,7 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               ValueListenableBuilder<MascotType>(
                 valueListenable: settings.selectedMascot,
-                builder: (_, mascot, __) => Row(
+                builder: (_, mascot, _) => Row(
                   children: [
                     _mascotCard(
                       title: 'Malayan Tiger',
@@ -56,10 +56,10 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white, width: 1.5),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 child: Column(
                   children: [
@@ -74,7 +74,7 @@ class SettingsScreen extends StatelessWidget {
                           const Spacer(),
                           ValueListenableBuilder<String>(
                             valueListenable: settings.selectedState,
-                            builder: (_, currentState, __) => DropdownButtonHideUnderline(
+                            builder: (_, currentState, _) => DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: currentState,
                                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF3D405B)),
@@ -105,26 +105,26 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               ValueListenableBuilder<bool>(
                 valueListenable: settings.isLoggedIn,
-                builder: (_, loggedIn, __) => ValueListenableBuilder<String>(
+                builder: (_, loggedIn, _) => ValueListenableBuilder<String>(
                   valueListenable: settings.userName,
-                  builder: (_, name, __) => Container(
+                  builder: (_, name, _) => Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.85),
+                      color: Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white, width: 1.5),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF3D405B).withOpacity(0.1),
+                        backgroundColor: const Color(0xFF3D405B).withValues(alpha: 0.1),
                         child: const Icon(Icons.person_rounded, color: Color(0xFF3D405B)),
                       ),
                       title: Text(loggedIn ? name : 'Guest Explorer', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF3D405B))),
                       subtitle: Text(loggedIn ? 'Member' : 'Tap to sign in', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                       trailing: TextButton(
                         style: TextButton.styleFrom(
-                          backgroundColor: loggedIn ? Colors.red.shade50 : const Color(0xFFE07A5F).withOpacity(0.1),
+                          backgroundColor: loggedIn ? Colors.red.shade50 : const Color(0xFFE07A5F).withValues(alpha: 0.1),
                           foregroundColor: loggedIn ? Colors.redAccent : const Color(0xFFE07A5F),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -149,7 +149,7 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     const Text('Version 1.0', style: TextStyle(color: Colors.black38, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                     const SizedBox(height: 6),
-                    Text('Made by Group: 404 Not Found', style: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.4), fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text('Made by Group: 404 Not Found', style: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.4), fontSize: 11, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -183,11 +183,11 @@ class SettingsScreen extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.white.withOpacity(0.5),
+            color: selected ? Colors.white : Colors.white.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: selected ? const Color(0xFFE07A5F) : Colors.white, width: selected ? 2.5 : 1.5),
             boxShadow: [
-              if (selected) BoxShadow(color: const Color(0xFFE07A5F).withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 6)),
+              if (selected) BoxShadow(color: const Color(0xFFE07A5F).withValues(alpha: 0.15), blurRadius: 15, offset: const Offset(0, 6)),
             ],
           ),
           child: Column(
@@ -206,7 +206,7 @@ class SettingsScreen extends StatelessWidget {
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF3D405B).withOpacity(0.07);
+    final paint = Paint()..color = const Color(0xFF3D405B).withValues(alpha: 0.07);
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {

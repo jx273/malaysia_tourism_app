@@ -1,11 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../data/mock_events.dart';
 import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
 import '../widgets/mascot_chat_sheet.dart';
 import '../widgets/walking_mascot.dart';
 import 'event_detail_screen.dart';
+import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +37,37 @@ class _HomeScreenState extends State<HomeScreen> {
     Color(0xFF3D405B), // 经典深靛蓝
   ];
 
+  // ================= 新增：对接后端的变量和初始化 =================
+  List<TourismEvent> _allEvents = []; 
+  bool _isLoading = true;             
+  String _errorMessage = '';          
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDataFromBackend(); // 页面一打开就去拿真数据
+  }
+
+  Future<void> _fetchDataFromBackend() async {
+    try {
+      final events = await ApiService.fetchEvents();
+      if (mounted) {
+        setState(() {
+          _allEvents = events;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+  // ==========================================================
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -58,8 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 550),
         reverseTransitionDuration: const Duration(milliseconds: 400),
-        pageBuilder: (_, __, ___) => EventDetailScreen(event: event),
-        transitionsBuilder: (_, animation, __, child) {
+        pageBuilder: (_, _, _) => EventDetailScreen(event: event),
+        transitionsBuilder: (_, animation, _, child) {
           final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
           return SlideTransition(
             position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(curve),
@@ -70,22 +101,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-void _openMascotChat() {
+  void _openMascotChat() async {
+    print('正在向后端发送 AI 推荐请求...');
+    
+    // 临时测试调用
+    final results = await ApiService.getAiRecommendations(
+      lat: 1.45, 
+      lng: 103.76, 
+      interests: ['Culture', 'Nature']
+    );
+    
+    print('拿到的 AI 推荐结果是: $results');
+
+    // 下面原本弹窗的代码保留
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.3), // 微微压暗背景，不加毛玻璃
+      barrierColor: Colors.black.withValues(alpha: 0.3), 
       builder: (_) => const MascotChatSheet(),
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
-    final allEvents = MockEventRepository.events;
+    // 如果正在加载，显示一个加载圈圈，防止白屏报错
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF4F1DE),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFE07A5F))),
+      );
+    }
 
-    // 全局搜索与分类联合过滤
-    final filteredAllEvents = allEvents.where((e) {
+    // 如果报错了，显示错误信息
+    if (_errorMessage.isNotEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F1DE),
+        body: Center(child: Text('Oops! $_errorMessage', style: const TextStyle(color: Colors.red))),
+      );
+    }
+
+    // 这里把原本的 allEvents 改成了 _allEvents
+    final filteredAllEvents = _allEvents.where((e) {
       final matchesCat = _selectedCat == 'All' || e.category.toLowerCase() == _selectedCat.toLowerCase();
       final q = _searchQuery.trim().toLowerCase();
       final matchesSearch = q.isEmpty ||
@@ -153,9 +211,9 @@ void _openMascotChat() {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.5),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.5),
                         ),
                         child: TextField(
                           controller: _searchController,
@@ -164,7 +222,7 @@ void _openMascotChat() {
                           decoration: InputDecoration(
                             border: InputBorder.none,
                             hintText: 'Search heritage, night market, states...',
-                            hintStyle: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.4), fontSize: 13),
+                            hintStyle: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.4), fontSize: 13),
                             icon: const Icon(Icons.search, color: Color(0xFF3D405B)),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
@@ -209,7 +267,7 @@ void _openMascotChat() {
                             ),
                           ),
                           // 被选中是橙色背景，未选中是带透明的白底
-                          backgroundColor: isSel ? const Color(0xFFE07A5F) : Colors.white.withOpacity(0.65),
+                          backgroundColor: isSel ? const Color(0xFFE07A5F) : Colors.white.withValues(alpha: 0.65),
                           side: BorderSide.none,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                           onPressed: () => setState(() => _selectedCat = cat),
@@ -292,7 +350,7 @@ void _openMascotChat() {
                       ),
                       Text(
                         '${filteredAllEvents.length} total',
-                        style: TextStyle(fontSize: 11, color: const Color(0xFF3D405B).withOpacity(0.6), fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 11, color: const Color(0xFF3D405B).withValues(alpha: 0.6), fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -305,7 +363,7 @@ void _openMascotChat() {
                     child: Center(
                       child: Text(
                         'No activities found matching "$_searchQuery"',
-                        style: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                     ),
                   )
@@ -347,7 +405,7 @@ void _openMascotChat() {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(0.28),
+              color: accentColor.withValues(alpha: 0.28),
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
@@ -374,7 +432,7 @@ void _openMascotChat() {
                           filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            color: Colors.black.withOpacity(0.55),
+                            color: Colors.black.withValues(alpha: 0.55),
                             child: Text(
                               ev.category,
                               style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
@@ -412,7 +470,7 @@ void _openMascotChat() {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.65), // 半透明白底营造玻璃感
+                      color: Colors.white.withValues(alpha: 0.65), // 半透明白底营造玻璃感
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +491,7 @@ void _openMascotChat() {
                                 '${ev.address}, ${ev.state}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.7), fontSize: 11),
+                                style: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.7), fontSize: 11),
                               ),
                             ),
                           ],
@@ -444,14 +502,14 @@ void _openMascotChat() {
                             const SizedBox(width: 4),
                             Text(
                               ev.openingTime ?? 'Open daily',
-                              style: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.6), fontSize: 10, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF4F1DE).withOpacity(0.8),
+                            color: const Color(0xFFF4F1DE).withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -491,7 +549,7 @@ void _openMascotChat() {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: cardColor.withOpacity(0.4),
+              color: cardColor.withValues(alpha: 0.4),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -532,7 +590,7 @@ void _openMascotChat() {
                     '${ev.address} • ${ev.state}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.75), fontSize: 11),
+                    style: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.75), fontSize: 11),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -576,7 +634,7 @@ void _openMascotChat() {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
+        color: Colors.white.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white, width: 1.5),
       ),
@@ -604,7 +662,7 @@ void _openMascotChat() {
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF3D405B).withOpacity(0.07);
+    final paint = Paint()..color = const Color(0xFF3D405B).withValues(alpha: 0.07);
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {

@@ -58,7 +58,7 @@ class _MapScreenState extends State<MapScreen> {
                 cameraConstraint: CameraConstraint.contain(
                   bounds: LatLngBounds(const LatLng(-1.0, 97.0), const LatLng(9.0, 121.0)),
                 ),
-                onTap: (_, __) => setState(() => _selectedEvent = null),
+                onTap: (_, _) => setState(() => _selectedEvent = null),
               ),
               children: [
                 TileLayer(
@@ -94,11 +94,11 @@ class _MapScreenState extends State<MapScreen> {
                                     color: isSel ? const Color(0xFFE07A5F) : Colors.white,
                                     shape: BoxShape.circle,
                                     border: Border.all(color: isSel ? Colors.white : const Color(0xFF81B29A), width: 2.5),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))],
+                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
                                   ),
                                   child: ValueListenableBuilder<MascotType>(
                                     valueListenable: UserSettings.instance.selectedMascot,
-                                    builder: (_, mascotType, __) => PixelMascot(
+                                    builder: (_, mascotType, _) => PixelMascot(
                                       type: mascotType,
                                       action: isSel ? MascotAction.happy : MascotAction.idleFront,
                                       size: 38, 
@@ -113,7 +113,7 @@ class _MapScreenState extends State<MapScreen> {
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF3D405B), 
                                     borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
+                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
                                   ),
                                   child: Text(ev.title.split(' ').first, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                                 )
@@ -138,7 +138,7 @@ class _MapScreenState extends State<MapScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.85), shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle),
                       child: const Icon(Icons.explore, color: Color(0xFF3D405B), size: 20),
                     ),
                     const SizedBox(width: 10),
@@ -146,7 +146,7 @@ class _MapScreenState extends State<MapScreen> {
                     const Spacer(),
                     // 右上角返回默认中心按钮
                     Material(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       shape: const CircleBorder(),
                       elevation: 4,
                       child: IconButton(
@@ -171,7 +171,7 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 FloatingActionButton.small(
                   heroTag: 'zoomIn',
-                  backgroundColor: Colors.white.withOpacity(0.95),
+                  backgroundColor: Colors.white.withValues(alpha: 0.95),
                   foregroundColor: const Color(0xFF3D405B),
                   onPressed: _zoomIn,
                   child: const Icon(Icons.add, size: 20),
@@ -179,7 +179,7 @@ class _MapScreenState extends State<MapScreen> {
                 const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'zoomOut',
-                  backgroundColor: Colors.white.withOpacity(0.95),
+                  backgroundColor: Colors.white.withValues(alpha: 0.95),
                   foregroundColor: const Color(0xFF3D405B),
                   onPressed: _zoomOut,
                   child: const Icon(Icons.remove, size: 20),
@@ -207,10 +207,10 @@ class _MapScreenState extends State<MapScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
+                          color: Colors.white.withValues(alpha: 0.95),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 10))],
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 10))],
                         ),
                         child: Row(
                           children: [

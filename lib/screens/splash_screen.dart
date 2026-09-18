@@ -38,8 +38,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           Navigator.pushReplacement(
             context,
             PageRouteBuilder(
-              pageBuilder: (_, __, ___) => const MainNavigationScreen(),
-              transitionsBuilder: (_, animation, __, child) {
+              pageBuilder: (_, _, _) => const MainNavigationScreen(),
+              transitionsBuilder: (_, animation, _, child) {
                 return FadeTransition(opacity: animation, child: child);
               },
               transitionDuration: const Duration(milliseconds: 600),
@@ -76,11 +76,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFF007A3D).withOpacity(0.2),
+                        color: const Color(0xFF007A3D).withValues(alpha: 0.2),
                         border: Border.all(color: const Color(0xFF00FF9D), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF00FF9D).withOpacity(0.3),
+                            color: const Color(0xFF00FF9D).withValues(alpha: 0.3),
                             blurRadius: 30,
                             spreadRadius: 4,
                           ),

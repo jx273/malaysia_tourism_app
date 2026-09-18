@@ -53,14 +53,14 @@ class _WalkingMascotState extends State<WalkingMascot> {
 
   // 走一下，休息一下的逻辑
   void _startBehaviorLoop() {
-    _behaviorTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    _behaviorTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted || _isDragging) return;
 
       setState(() {
         _textIndex = (_textIndex + 1) % _phrases.length;
         
-        // 60% 概率休息，40% 概率走动
-        if (_rnd.nextDouble() > 0.4) {
+        // 70% 概率休息，30% 概率走动
+        if (_rnd.nextDouble() > 0.3) {
           _isResting = true;
         } else {
           _isResting = false;
@@ -109,7 +109,7 @@ class _WalkingMascotState extends State<WalkingMascot> {
         }
 
         return AnimatedPositioned(
-          duration: _isDragging ? Duration.zero : const Duration(milliseconds: 2500),
+          duration: _isDragging ? Duration.zero : const Duration(milliseconds: 4500),
           curve: Curves.easeInOut,
           left: _x,
           bottom: _y,
@@ -135,7 +135,7 @@ class _WalkingMascotState extends State<WalkingMascot> {
                       key: ValueKey<int>(_textIndex),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFE07A5F), width: 1.5),
                       ),
