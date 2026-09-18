@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, Date
+from sqlalchemy import Column, Integer, String, Float, Date, Boolean
 from database import Base
 
-# --- 表 1: 为 App 提供内容的“精选活动”表 ---
+# --- Table 1: App Content (Events) ---
 class Event(Base):
     __tablename__ = "events"
-
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(String, unique=True, index=True)
     name = Column(String, index=True)
@@ -21,16 +20,17 @@ class Event(Base):
     image_url = Column(String, nullable=True)
     recommendation_reason = Column(String, nullable=True)
 
-# --- 表 2: 【新】为 Dashboard 提供核心分析数据的“州级统计”表 ---
+# --- Table 2: Dashboard Core Data (Final Correct Version) ---
 class StateTourismStats(Base):
     __tablename__ = "state_tourism_stats"
-
     id = Column(Integer, primary_key=True, index=True)
     state = Column(String, index=True)
     year = Column(Integer, index=True)
-    visitor_count = Column(Integer, nullable=True)
-    tourism_revenue = Column(Float, nullable=True)
-    gdp = Column(Float, nullable=True)
-    cpi = Column(Float, nullable=True)
-    hotel_count = Column(Integer, nullable=True)
-    # ... 我们可以根据 YiYu 最终的数据集，在这里添加更多列 ...
+    visitors_000 = Column(Float, nullable=True)
+    expected_visitors_000 = Column(Float, nullable=True)
+    actual_share_pct = Column(Float, nullable=True)
+    expected_share_pct = Column(Float, nullable=True)
+    opportunity_gap_pp = Column(Float, nullable=True)
+    opportunity_gap_pct = Column(Float, nullable=True)
+    is_holdout_year = Column(Boolean, nullable=True)
+    naive_forecast_next_year_000 = Column(Float, nullable=True)
