@@ -7,6 +7,21 @@
 rows. Holdout MAE_log 0.2648 against a baseline of 0.4467, a 40.7% reduction
 (`ml/reports/09_evaluation.md`).
 
+> ### ⚠️ Changed on 2026-09-18 — re-pull before you build
+> `expected_visitors_000` **now means something different**, and two fields were added.
+>
+> Before, it was the model's raw output, which is anchored on the model's training years
+> and runs systematically low for later ones. Put beside an actual it produced a visible
+> contradiction: Johor 2025 showed expected 17.7m against actual 18.2m while the gap said
+> +27% below expectation. **In 2025 that happened for 8 of the 16 states.**
+>
+> `expected_visitors_000` is now the expected **share** applied to that year's national
+> total, so it sits on the same scale as the actual. Across all 90 rows the level and the
+> gap now agree in direction, with **zero** contradictions. The raw output is still
+> available as `model_raw_expected_000`, for diagnostics only.
+>
+> Nothing about the model or its accuracy changed. No number in the evaluation moved.
+
 ---
 
 ## 1. You may not need the API at all
@@ -33,7 +48,8 @@ Importing loads nothing and **trains nothing**. The model file opens lazily on t
 and is cached. All paths resolve relative to `ml/`, so the working directory does not matter
 and there are no Windows-specific paths.
 
-Requires `pandas`, `numpy`, `scikit-learn` and `joblib` — see `ml/requirements.txt`.
+Requires `pandas`, `numpy`, `scikit-learn` and `joblib` — all pinned in
+`ml/requirements.txt`.
 
 ## 3. `predict(payload: dict) -> dict`
 
@@ -68,8 +84,10 @@ predict({"state": "Johor", "year": 2025})
 {
   "state": "Johor",
   "year": 2025,
-  "expected_visitors_000": 17712.1,
+  "expected_visitors_000": 23118.9,
   "actual_visitors_000": 18197.0,
+  "gap_visitors_000": 4921.9,
+  "model_raw_expected_000": 17712.1,
   "expected_share_pct": 7.9702,
   "actual_share_pct": 6.2734,
   "opportunity_gap_pct": 27.0,
@@ -91,27 +109,46 @@ predict({"state": "Johor", "year": 2025})
 | Field | Type | Units | Meaning |
 |---|---|---|---|
 | `state`, `year` | string, int | — | echoed back |
-| `expected_visitors_000` | float | **thousands of visitors** | what the model expects from this state's population, economy and capacity |
+| `expected_visitors_000` | float \| null | **thousands of visitors** | **the one to display.** The expected share applied to that year's national total, so it is directly comparable with `actual_visitors_000` |
 | `actual_visitors_000` | float \| null | thousands | what DOSM published |
+| **`gap_visitors_000`** | float \| null | thousands | `expected_visitors_000 − actual_visitors_000`. Positive = a shortfall. Johor 2025 is **+4,922**, i.e. 4.9m visitors below its benchmark |
+| `model_raw_expected_000` | float | thousands | **diagnostic only, never display beside an actual.** The unscaled model output, anchored on the training years |
 | `expected_share_pct` | float | **percent** | expected share of that year's national total |
 | `actual_share_pct` | float \| null | percent | actual share |
 | **`opportunity_gap_pct`** | float \| null | **percent** | **the headline number.** `expected_share / actual_share − 1`. Positive = the state receives a *smaller* share than its fundamentals imply |
 | `opportunity_gap_pp` | float \| null | percentage points | `expected_share − actual_share`, for stacked or map shading |
-| `interpretation` | string | — | a plain-English sentence, safe to show a user |
+| `interpretation` | string | — | a plain-English sentence, safe to show a user. The wording switches at **±5%**: above +5% "receives a smaller share…", below −5% "receives a larger share…", and in between "receives about the share…". Treat anything inside ±5% as no finding |
 | `basis` | string | — | always "share of the national total for the same year" |
 | `model` | object | — | provenance to display in an "about" panel |
 | `warnings` | array of strings | — | **show these.** See below |
 
-### Why the gap is a share, not a difference in visitors
+### Why there are two expected columns
 
-The model has no time term: it estimates the level implied by a state's fundamentals. National
-visitors grew from 213.7m in 2023 to 290.1m in 2025 while population and hotel stock barely
-moved, so the model under-predicts every state in recent years — 91% of holdout rows. A gap
-in raw visitors would therefore measure **national growth**, not state performance, and would
-have shown 15 of 16 states as "opportunities". Normalising to shares removes that entirely.
+The model has no time term: it estimates the level implied by a state's fundamentals.
+National visitors grew from 213.7m in 2023 to 290.1m in 2025 while population and hotel
+stock barely moved, so the **raw** model output runs low for every state in recent years —
+91% of holdout rows. Two consequences:
 
-**Do not compute your own gap as `expected_visitors_000 − actual_visitors_000`.** It will be
-negative almost everywhere and it will not mean what it looks like.
+1. A gap in raw visitors would measure **national growth**, not state performance. It would
+   have marked 15 of 16 states as "opportunities", which is meaningless.
+2. Showing the raw level beside an actual reads as a contradiction. Johor 2025: raw expected
+   17.7m, actual 18.2m, yet the gap says the state is 27% below expectation. In 2025 that
+   affected 8 of 16 states.
+
+The fix is to rescale: `expected_visitors_000 = expected_share × the year's national total`.
+Both sides then carry the same national total, so
+
+    expected_visitors_000 / actual_visitors_000 − 1  ==  opportunity_gap_pct
+
+holds exactly, and `gap_visitors_000` always has the same sign as `opportunity_gap_pct`.
+Verified across all 90 rows.
+
+**`expected_visitors_000` is a benchmark, not a forecast.** It uses the national total of a
+year that has already been published, so it answers "given what the country did that year,
+what share should this state have taken", never "what will happen next year".
+
+**Do not display `model_raw_expected_000` next to an actual**, and do not build your own gap
+from it.
 
 ### Warnings you should surface
 
@@ -165,10 +202,12 @@ except PredictionError as exc:
 |---|---|---|
 | `state`, `year` | — | key |
 | `visitors_000` | thousands | actual, from DOSM |
-| `expected_visitors_000` | thousands | model output |
+| `expected_visitors_000` | thousands | benchmarked expectation, comparable with the actual |
+| **`gap_visitors_000`** | thousands | shortfall in visitors; positive = below benchmark |
 | `actual_share_pct`, `expected_share_pct` | percent | within that year |
 | `opportunity_gap_pp` | percentage points | expected share − actual share |
 | **`opportunity_gap_pct`** | percent | the headline number |
+| `model_raw_expected_000` | thousands | diagnostic only; do not display beside an actual |
 | `is_holdout_year` | bool | `true` for 2024 and 2025 — **lead with these** |
 | `naive_forecast_next_year_000` | thousands | only on 2025 rows; see §5 |
 
@@ -199,7 +238,7 @@ running the pipeline**. Both sources give identical answers; that is asserted in
 | Panel | Field |
 |---|---|
 | Map shading | `opportunity_gap_pct` for the selected year, diverging scale centred on 0 |
-| State drill-down | `actual_visitors_000` and `expected_visitors_000`, plus `interpretation` |
+| State drill-down | `actual_visitors_000` against `expected_visitors_000` (both on the same scale), the shortfall `gap_visitors_000`, plus `interpretation` |
 | Ranked table | states sorted by `opportunity_gap_pct`, 2025 |
 | Reliability | show `warnings`; grey out or footnote Perlis and W.P. Putrajaya |
 | About | `model.family`, `trained_on_years`, `holdout_MAE_log` against `baseline_MAE_log` |

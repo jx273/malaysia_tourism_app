@@ -68,11 +68,15 @@ def main() -> int:
     parts = []
     for year, group in table.groupby("year"):
         group = group.copy()
-        group["expected_visitors_000"] = np.exp(_model().predict(group[features].to_numpy()))
-        group["expected_share_pct"] = group.expected_visitors_000 / group.expected_visitors_000.sum() * 100
+        group["model_raw_expected_000"] = np.exp(_model().predict(group[features].to_numpy()))
+        group["expected_share_pct"] = group.model_raw_expected_000 / group.model_raw_expected_000.sum() * 100
         group["actual_share_pct"] = group.visitors_000 / group.visitors_000.sum() * 100
         group["opportunity_gap_pp"] = group.expected_share_pct - group.actual_share_pct
         group["opportunity_gap_pct"] = (group.expected_share_pct / group.actual_share_pct - 1) * 100
+        # Rescale the expected share to the year's own national total so that the level
+        # and the gap tell the same story. See src/predict.py for why.
+        group["expected_visitors_000"] = group.expected_share_pct / 100 * group.visitors_000.sum()
+        group["gap_visitors_000"] = group.expected_visitors_000 - group.visitors_000
         parts.append(group)
     predictions = pd.concat(parts, ignore_index=True)
 
@@ -83,8 +87,9 @@ def main() -> int:
         predictions.year == latest, predictions.visitors_000, np.nan)
 
     columns = ["state", "year", "visitors_000", "expected_visitors_000",
-               "actual_share_pct", "expected_share_pct", "opportunity_gap_pp",
-               "opportunity_gap_pct", "is_holdout_year", "naive_forecast_next_year_000"]
+               "gap_visitors_000", "actual_share_pct", "expected_share_pct",
+               "opportunity_gap_pp", "opportunity_gap_pct", "model_raw_expected_000",
+               "is_holdout_year", "naive_forecast_next_year_000"]
     out = predictions[columns].round(4).sort_values(["year", "opportunity_gap_pct"],
                                                     ascending=[True, False])
     path = FOR_HONGYIK / "sample_predictions.csv"

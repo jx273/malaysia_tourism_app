@@ -30,8 +30,9 @@ ranked list of states with a quantified shortfall, which is the form a budget ar
 - `figures/04_volume_vs_intensity.png` — volume and intensity are different rankings.
   W.P. Putrajaya sees 26.1 visitors per resident and Melaka 19.8, against Selangor 4.9 and
   Johor 4.3: a 6.0x spread invisible in a volume ranking.
-- `figures/03_concentration.png` — six years including a pandemic did not redistribute
-  domestic tourism, so the gap is persistent rather than a one-year artefact.
+- `figures/03_concentration.png` — the top-three share returned to almost the same level in
+  2025 (32.8%) as in 2019 (32.7%), which suggests the gap is persistent rather than a
+  one-year artefact. Only those two endpoints were compared.
 - `figures/07_correlation_matrix.png` — the size predictors are collinear (0.541 to 0.992),
   which constrains the model family.
 
@@ -41,6 +42,16 @@ ranked list of states with a quantified shortfall, which is the form a budget ar
 |---|---|---|---|---|
 | **Model A1** Forecast | Show the model predicts | `log(visitors_000)` | lags, trend, national total, pandemic flags, state effect | time holdout, MAE / RMSE / MAPE against a naive baseline |
 | **Model A2** Structural | Produce the gap | `log(visitors_000)` | **no lags**: population, GDP, services GDP, rooms, employment, participation rate, CPI accommodation and recreation | same holdout; gap = expected − actual |
+
+> **Superseded on two points, kept here as the record of the Phase 4 decision.**
+> 1. The gap is **not** expected minus actual in visitor numbers. Phase 9 found that a level
+>    gap measures national growth rather than state performance, and replaced it with a
+>    **share-based** gap: expected share of the national total against actual share. See
+>    `reports/09_evaluation.md` §3.
+> 2. The row counts below are panel counts, taken before features were built. Once lags and
+>    the feature set are applied the usable samples are **118 forecasting rows** (train 70,
+>    validate 16, holdout 32) and **90 structural rows** (train 58, holdout 32). See
+>    `reports/05_features.md` §"Rows lost, and why".
 
 Keeping lags out of A2 is the whole point. With lagged visitors in the features the residual
 would be an autoregressive error term, and a high accuracy score would make the gap *less*
