@@ -26,3 +26,6 @@ build/
 .packages
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Ignore environment variable files
+.env

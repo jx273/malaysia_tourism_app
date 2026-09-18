@@ -54,7 +54,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF3D405B).withOpacity(0.15),
+                color: const Color(0xFF3D405B).withValues(alpha: 0.15),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -68,8 +68,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 // 1. 去掉固定高度，改用纵向 Padding 自然撑开
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.75), // 苹果风磨砂半透明
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                  color: Colors.white.withValues(alpha: 0.75), // 苹果风磨砂半透明
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
                 ),
                 child: BottomNavigationBar(
                   currentIndex: _currentIndex,
@@ -78,7 +78,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   selectedItemColor: const Color(0xFFE07A5F),
-                  unselectedItemColor: const Color(0xFF3D405B).withOpacity(0.4),
+                  unselectedItemColor: const Color(0xFF3D405B).withValues(alpha: 0.4),
                   showSelectedLabels: false,
                   showUnselectedLabels: false,
                   // 2. 将图标尺寸从默认的 24 统一设定，避免撑破容器
@@ -105,7 +105,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       activeIcon: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFE07A5F).withOpacity(0.15),
+          color: const Color(0xFFE07A5F).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Icon(active, size: 26),

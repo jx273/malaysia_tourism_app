@@ -86,7 +86,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         color: Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFFE07A5F), width: 2),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 4))],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, 4))],
                       ),
                       child: PixelMascot(type: mascotType, action: currentAction, size: 65),
                     ),
@@ -112,10 +112,10 @@ class _AuthScreenState extends State<AuthScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(28),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.65), // 苹果质感半透明白
+                            color: Colors.white.withValues(alpha: 0.65), // 苹果质感半透明白
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: Colors.white.withOpacity(0.9), width: 1.5),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 24, offset: const Offset(0, 10))],
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 1.5),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 24, offset: const Offset(0, 10))],
                           ),
                           child: Column(
                             children: [
@@ -136,7 +136,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFFE07A5F), // 彻底告别深绿色
                                     foregroundColor: Colors.white,
-                                    shadowColor: const Color(0xFFE07A5F).withOpacity(0.5),
+                                    shadowColor: const Color(0xFFE07A5F).withValues(alpha: 0.5),
                                     elevation: 8,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
@@ -176,10 +176,10 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _buildTextField(IconData icon, String hint, {bool isPassword = false, FocusNode? focusNode, TextEditingController? controller}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: TextField(
         controller: controller,
@@ -207,7 +207,7 @@ class _AuthScreenState extends State<AuthScreen> {
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF3D405B).withOpacity(0.07);
+    final paint = Paint()..color = const Color(0xFF3D405B).withValues(alpha: 0.07);
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {

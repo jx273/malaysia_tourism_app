@@ -36,7 +36,7 @@ class PassportScreen extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Close',
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: const Duration(milliseconds: 400),
       pageBuilder: (context, anim1, anim2) => Container(),
       transitionBuilder: (context, anim1, anim2, child) {
@@ -57,7 +57,7 @@ class PassportScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
                     ),
                     child: Column(
                       children: [
@@ -83,7 +83,7 @@ class PassportScreen extends StatelessWidget {
                                 bottom: 12, left: 12,
                                 child: ValueListenableBuilder<MascotType>(
                                   valueListenable: UserSettings.instance.selectedMascot,
-                                  builder: (_, m, __) => _staticMascotSticker(m),
+                                  builder: (_, m, _) => _staticMascotSticker(m),
                                 ),
                               ),
                             ],
@@ -189,7 +189,7 @@ class PassportScreen extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4))],
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -210,7 +210,7 @@ class PassportScreen extends StatelessWidget {
                                               bottom: 4, left: 4,
                                               child: ValueListenableBuilder<MascotType>(
                                                 valueListenable: UserSettings.instance.selectedMascot,
-                                                builder: (_, m, __) => Transform.scale(scale: 0.8, child: _staticMascotSticker(m)),
+                                                builder: (_, m, _) => Transform.scale(scale: 0.8, child: _staticMascotSticker(m)),
                                               ),
                                             ),
                                           ],
@@ -266,7 +266,7 @@ class PassportScreen extends StatelessWidget {
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF3D405B).withOpacity(0.07);
+    final paint = Paint()..color = const Color(0xFF3D405B).withValues(alpha: 0.07);
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {

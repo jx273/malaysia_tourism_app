@@ -83,7 +83,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
                 ),
                 child: Column(
                   children: [
@@ -111,7 +111,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             bottom: 12, left: 12,
                             child: ValueListenableBuilder<MascotType>(
                               valueListenable: UserSettings.instance.selectedMascot,
-                              builder: (_, m, __) => _staticMascotSticker(m),
+                              builder: (_, m, _) => _staticMascotSticker(m),
                             ),
                           ),
                         ],
@@ -135,9 +135,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
                         hintText: 'Edit your memory note...',
-                        hintStyle: TextStyle(color: const Color(0xFFE07A5F).withOpacity(0.5)),
+                        hintStyle: TextStyle(color: const Color(0xFFE07A5F).withValues(alpha: 0.5)),
                         filled: true,
-                        fillColor: const Color(0xFFF4F1DE).withOpacity(0.5),
+                        fillColor: const Color(0xFFF4F1DE).withValues(alpha: 0.5),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
                     ),
@@ -206,7 +206,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 leading: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: CircleAvatar(
-                    backgroundColor: Colors.white.withOpacity(0.8),
+                    backgroundColor: Colors.white.withValues(alpha: 0.8),
                     child: IconButton(icon: const Icon(Icons.arrow_back, color: Color(0xFF3D405B)), onPressed: () => Navigator.pop(context)),
                   ),
                 ),
@@ -245,14 +245,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                         _infoRow(Icons.place, 'Address', widget.event.address),
                         const SizedBox(height: 12),
-                        _infoRow(Icons.calendar_today, 'Dates', '${widget.event.startDate?.toString().split(' ')[0]} to ${widget.event.endDate?.toString().split(' ')[0]}'),
+                        _infoRow(Icons.calendar_today, 'Dates', (widget.event.startDate != null && widget.event.endDate != null) 
+    ? '${widget.event.startDate!.toString().split(' ')[0]} to ${widget.event.endDate!.toString().split(' ')[0]}'
+    : 'Open all year round'),
                         const SizedBox(height: 12),
                         _infoRow(Icons.access_time, 'Operating Hours', '${widget.event.openingTime ?? "09:00"} - ${widget.event.closingTime ?? "18:00"}'),
                         const SizedBox(height: 24),
 
                         Container(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: const Color(0xFFF2CC8F).withOpacity(0.4), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: const Color(0xFFF2CC8F).withValues(alpha: 0.4), borderRadius: BorderRadius.circular(12)),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -284,15 +286,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
-                  barrierColor: Colors.black.withOpacity(0.3),
+                  barrierColor: Colors.black.withValues(alpha: 0.3),
                   builder: (_) => MascotChatSheet(currentEvent: widget.event),
                 );
               },
               child: ValueListenableBuilder<MascotType>(
                 valueListenable: UserSettings.instance.selectedMascot,
-                builder: (_, mascot, __) => Container(
+                builder: (_, mascot, _) => Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE07A5F), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8)]),
+                  decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE07A5F), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)]),
                   // 这里用 idleFront 取代 happy，它不会手舞足蹈，非常安静
                   child: PixelMascot(type: mascot, action: MascotAction.idleFront, size: 40),
                 ),
@@ -305,7 +307,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             left: 0, right: 0, bottom: 0,
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
-              decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, -5))]),
+              decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, -5))]),
               child: Row(
                 children: [
                   // 左边：Check-in 绿 / Snap Again 黄
@@ -328,7 +330,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   Expanded(
                     child: ValueListenableBuilder<List<TourismEvent>>(
                       valueListenable: _planRepo.savedEvents,
-                      builder: (_, saved, __) {
+                      builder: (_, saved, _) {
                         final inPlan = _planRepo.isEventInPlan(widget.event.id);
                         return ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(

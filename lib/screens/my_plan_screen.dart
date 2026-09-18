@@ -45,14 +45,14 @@ class MyPlanScreen extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Planned Events', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('Planned Events', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text('${saved.length} Experiences Saved', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
                           child: Text('Est. RM ${totalCost.toInt()}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                         ),
                       ],
@@ -92,10 +92,10 @@ class MyPlanScreen extends StatelessWidget {
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 20),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: Colors.grey.shade200, width: 1.5),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                                   ),
                                   child: Row(
                                     children: [
@@ -168,7 +168,7 @@ class MyPlanScreen extends StatelessWidget {
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF3D405B).withOpacity(0.07);
+    final paint = Paint()..color = const Color(0xFF3D405B).withValues(alpha: 0.07);
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
