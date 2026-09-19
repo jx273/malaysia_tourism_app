@@ -85,7 +85,6 @@ class _PixelMascotState extends State<PixelMascot> {
         width: widget.size,
         height: widget.size,
         child: ClipRect(
-          // 彻底抛弃之前的 _PixelClipper，直接用标准的 ClipRect
           child: OverflowBox(
             alignment: Alignment.topLeft,
             minWidth: 256.0 * scale,
@@ -101,7 +100,7 @@ class _PixelMascotState extends State<PixelMascot> {
               child: Image.asset(
                 assetPath,
                 filterQuality: FilterQuality.none, 
-                fit: BoxFit.fill, // 强制拉满，防止因为亚像素渲染导致溢出别的帧
+                fit: BoxFit.fill, 
               ),
             ),
           ),

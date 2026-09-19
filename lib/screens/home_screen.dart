@@ -29,7 +29,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCat = 'All';
   String _searchQuery = '';
 
-  // Teh Tarik 专属撞色体系
   final List<Color> _cardColors = const [
     Color(0xFF81B29A), // 复古薄荷绿
     Color(0xFFF2CC8F), // 奶茶焦糖黄
@@ -37,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Color(0xFF3D405B), // 经典深靛蓝
   ];
 
-  // ================= 新增：对接后端的变量和初始化 =================
   List<TourismEvent> _allEvents = []; 
   bool _isLoading = true;             
   String _errorMessage = '';          
@@ -45,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchDataFromBackend(); // 页面一打开就去拿真数据
+    _fetchDataFromBackend(); 
   }
 
   Future<void> _fetchDataFromBackend() async {
@@ -66,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
-  // ==========================================================
 
   @override
   void dispose() {
@@ -104,7 +101,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openMascotChat() async {
     print('正在向后端发送 AI 推荐请求...');
     
-    // 临时测试调用
     final results = await ApiService.getAiRecommendations(
       lat: 1.45, 
       lng: 103.76, 
@@ -113,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
     
     print('拿到的 AI 推荐结果是: $results');
 
-    // 下面原本弹窗的代码保留
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -142,7 +137,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // 这里把原本的 allEvents 改成了 _allEvents
     final filteredAllEvents = _allEvents.where((e) {
       final matchesCat = _selectedCat == 'All' || e.category.toLowerCase() == _selectedCat.toLowerCase();
       final q = _searchQuery.trim().toLowerCase();
@@ -157,9 +151,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: CustomPaint(
-        painter: _PatternPainter(), // 加上浅色全局印花
+        painter: _PatternPainter(), 
         child: Stack(
-           // ... 里面保留你原来的 ListView 内容 ...
         children: [
           SafeArea(
             bottom: false,
@@ -544,7 +537,6 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          // 还原：整个卡片背景变成传入的撞色 (薄荷绿、焦糖黄等)
           color: cardColor, 
           borderRadius: BorderRadius.circular(20),
           boxShadow: [

@@ -2,12 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
-import '../data/mock_events.dart';     // 补上 PlanRepository 引用
+import '../data/mock_events.dart';    
 import '../data/passport_repository.dart';
 import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
 import '../widgets/mascot_chat_sheet.dart';
-import '../widgets/pixel_mascot.dart'; // 补上吉祥物引用
+import '../widgets/pixel_mascot.dart'; 
 import 'dart:math';
 
 class EventDetailScreen extends StatefulWidget {
@@ -219,7 +219,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 child: Transform.translate(
                   offset: const Offset(0, -24), 
                   child: Container(
-                    // 修复缝隙：将 top padding 从 24 加大到 36，拉开安全距离
                     padding: const EdgeInsets.fromLTRB(20, 36, 20, 100),
                     decoration: const BoxDecoration(
                       color: Color(0xFFF4F1DE), 
@@ -295,14 +294,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 builder: (_, mascot, _) => Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE07A5F), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)]),
-                  // 这里用 idleFront 取代 happy，它不会手舞足蹈，非常安静
                   child: PixelMascot(type: mascot, action: MascotAction.idleFront, size: 40),
                 ),
               ),
             ),
           ),
 
-          // 底部 50/50 均分操作区 (完美贴合你的颜色要求)
           Positioned(
             left: 0, right: 0, bottom: 0,
             child: Container(

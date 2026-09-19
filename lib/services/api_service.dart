@@ -1,5 +1,4 @@
 import 'dart:convert';
-// 注意：删掉了 dart:io，换成了下面这个
 import 'package:flutter/foundation.dart'; 
 import 'package:http/http.dart' as http;
 import '../models/tourism_event.dart';
@@ -13,15 +12,14 @@ class ApiService {
     } 
     // 2. 如果在 Android 模拟器运行
     else if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000';
+      return 'http://10.0.2.2:8000'; 
     } 
     // 3. iOS 模拟器或 macOS 桌面端
     else {
-      return 'http://127.0.0.1:8000';
+      return 'http://127.0.0.1:8000'; 
     }
   }
 
-  // 这里的代码和你之前的一模一样
   static Future<List<TourismEvent>> fetchEvents() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/app/events'));
