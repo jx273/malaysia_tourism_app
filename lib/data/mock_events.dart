@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/tourism_event.dart';
+import '../services/api_service.dart';
 
 class MockEventRepository {
   static List<TourismEvent> events = [
+    // Default fallback events in case the backend is completely unreachable
     TourismEvent(
       id: 'evt101',
       title: 'Pasar Karat JB Night Heritage',
@@ -53,43 +53,14 @@ class MockEventRepository {
   ];
 
   static Future<void> fetchEventsFromBackend() async {
-    const apiUrl = 'http://127.0.0.1:8000/app/events';
     try {
-      final response = await http.get(Uri.parse(apiUrl)).timeout(const Duration(seconds: 3));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          events = data.map((json) => TourismEvent.fromJson(json)).toList();
-        }
+      // Use the unified ApiService to ensure we respect the cross-platform IP rules
+      final fetchedEvents = await ApiService.fetchEvents();
+      if (fetchedEvents.isNotEmpty) {
+        events = fetchedEvents;
       }
     } catch (e) {
-      debugPrint('Backend unreachable, using local fallback.');
+      debugPrint('Backend unreachable, using local fallback events: $e');
     }
-  }
-}
-
-class PlanRepository {
-  static final PlanRepository instance = PlanRepository._internal();
-  PlanRepository._internal();
-
-  final ValueNotifier<List<TourismEvent>> savedEvents = ValueNotifier<List<TourismEvent>>([]);
-
-  bool isEventInPlan(String eventId) {
-    return savedEvents.value.any((e) => e.id == eventId);
-  }
-
-  void togglePlan(TourismEvent event) {
-    final currentList = List<TourismEvent>.from(savedEvents.value);
-    if (isEventInPlan(event.id)) {
-      currentList.removeWhere((e) => e.id == event.id);
-    } else {
-      currentList.add(event);
-      currentList.sort((a, b) {
-        final aDate = a.startDate ?? DateTime.now();
-        final bDate = b.startDate ?? DateTime.now();
-        return aDate.compareTo(bDate);
-      });
-    }
-    savedEvents.value = currentList;
   }
 }

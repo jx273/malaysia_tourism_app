@@ -30,25 +30,30 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    MockEventRepository.fetchEventsFromBackend();
+    _loadDataAndTransition();
+  }
+
+  Future<void> _loadDataAndTransition() async {
+    // 1. Fetch global event data before entering the app
+    await MockEventRepository.fetchEventsFromBackend();
     
-    // stay 1.5s -> fade out 0.4s -> scale up 0.6s -> navigate to AuthWrapper
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        _controller.forward().then((_) {
-          Navigator.pushReplacement(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (_, _, _) => const AuthWrapper(),
-              transitionsBuilder: (_, animation, _, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              transitionDuration: const Duration(milliseconds: 600),
-            ),
-          );
-        });
-      }
-    });
+    // 2. Ensure the splash screen stays visible for at least 1.5 seconds
+    await Future.delayed(const Duration(milliseconds: 1500));
+    
+    if (mounted) {
+      _controller.forward().then((_) {
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, _, _) => const AuthWrapper(),
+            transitionsBuilder: (_, animation, _, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 600),
+          ),
+        );
+      });
+    }
   }
 
   @override
@@ -92,7 +97,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          
                           Positioned(top: 10, left: 60, child: _buildPixelBlock(const Color(0xFFE07A5F), 14)), 
                           Positioned(top: 20, right: 60, child: _buildPixelBlock(const Color(0xFFF2CC8F), 18, opacity: 0.8)), 
                           

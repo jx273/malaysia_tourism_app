@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/mock_events.dart';
+import '../data/plan_repository.dart';
 import '../data/passport_repository.dart';
 import '../models/tourism_event.dart';
 import 'event_detail_screen.dart';
@@ -20,7 +20,6 @@ class MyPlanScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // 确保全局印花置于最底层
           Positioned.fill(child: CustomPaint(painter: _PatternPainter())),
           
           ValueListenableBuilder<List<TourismEvent>>(
@@ -69,7 +68,6 @@ class MyPlanScreen extends StatelessWidget {
                       final isCheckedIn = PassportRepository.instance.isCheckedIn(ev.id);
                       final isLast = idx == saved.length - 1;
                       
-                      // 时间轴圆点颜色严格跟随状态 (已打卡=黄色，未打卡=绿色)
                       final dotColor = isCheckedIn ? const Color(0xFFF2CC8F) : const Color(0xFF81B29A);
 
                       return IntrinsicHeight(
