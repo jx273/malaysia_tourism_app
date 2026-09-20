@@ -7,6 +7,25 @@ TRAINING_YEARS = (2017, 2018, 2019, 2023)
 HOLDOUT_YEARS = (2024, 2025)
 NEUTRAL_GAP_LIMIT = 5.0
 
+LOW_RELIABILITY_STATES = {
+    "Perlis",
+    "W.P. Putrajaya",
+}
+
+NATIONAL_2025_CONTEXT = {
+    "tourism_expenditure_rm_billion": 121.3,
+    "tourism_expenditure_growth_pct": 13.6,
+    "domestic_trips_million": 332.2,
+    "trips_per_visitor": 1.15,
+}
+
+NATIONAL_2025_SPENDING = {
+    "Shopping": 36.9,
+    "Food & beverages": 16.1,
+    "Automotive fuel": 13.5,
+    "Other categories": 33.5,
+}
+
 FEATURE_REQUIRED_COLUMNS = {
     "state",
     "year",
@@ -61,6 +80,7 @@ def classify_opportunity_gap(gap_value):
     if pd.isna(gap_value):
         return {
             "label": "Data unavailable",
+            "short_label": "Data unavailable",
             "category": "unavailable",
             "delta_color": "off",
         }
@@ -68,6 +88,7 @@ def classify_opportunity_gap(gap_value):
     if gap_value > NEUTRAL_GAP_LIMIT:
         return {
             "label": "Positive relative opportunity gap",
+            "short_label": "Positive gap",
             "category": "positive_gap",
             "delta_color": "normal",
         }
@@ -75,15 +96,176 @@ def classify_opportunity_gap(gap_value):
     if gap_value < -NEUTRAL_GAP_LIMIT:
         return {
             "label": "Above model-expected share",
+            "short_label": "Above benchmark",
             "category": "above_expected",
             "delta_color": "inverse",
         }
 
     return {
         "label": "Close to model expectation",
+        "short_label": "Near benchmark",
         "category": "neutral",
         "delta_color": "off",
     }
+    
+def get_reliability_notes(state, year):
+    notes = []
+
+    if year in TRAINING_YEARS:
+        notes.append(
+            f"{year} is a model training year. This is an in-sample "
+            "structural benchmark, not an independent validation result."
+        )
+
+    if year in HOLDOUT_YEARS:
+        notes.append(
+            f"{year} is part of the untouched holdout period used for "
+            "out-of-sample evaluation."
+        )
+
+    if state in LOW_RELIABILITY_STATES:
+        notes.append(
+            f"{state} has higher-than-median holdout error. Interpret its "
+            "opportunity gap as indicative rather than conclusive."
+        )
+
+    return notes
+
+
+def build_deterministic_context(
+    selected_region,
+    selected_year,
+    features,
+    predictions,
+):
+    year_features = features[
+        features["year"] == selected_year
+    ].copy()
+    year_predictions = predictions[
+        predictions["year"] == selected_year
+    ].copy()
+
+    context = {
+        "scope": selected_region,
+        "year": int(selected_year),
+        "is_holdout_year": selected_year in HOLDOUT_YEARS,
+        "training_years": list(TRAINING_YEARS),
+        "holdout_years": list(HOLDOUT_YEARS),
+        "neutral_gap_limit_pct": NEUTRAL_GAP_LIMIT,
+        "source": "DOSM official Malaysian tourism and socioeconomic data",
+        "model": "Gradient Boosting structural expected-demand model",
+        "limitations": [
+            "The opportunity gap is a structural benchmark, not a forecast.",
+            "The analysis does not establish the cause of a state's gap.",
+            "Scenario calculations are illustrative and not estimated policy effects.",
+        ],
+    }
+
+    if selected_region == "Malaysia":
+        meaningful_opportunities = (
+            year_predictions[
+                year_predictions["opportunity_gap_pct"]
+                > NEUTRAL_GAP_LIMIT
+            ]
+            .sort_values(
+                "opportunity_gap_pct",
+                ascending=False,
+            )
+            .copy()
+        )
+
+        context["national_visitors_million"] = round(
+            year_features["visitors_000"].sum() / 1000,
+            4,
+        )
+        context["meaningful_opportunities"] = (
+            meaningful_opportunities[
+                [
+                    "state",
+                    "actual_share_pct",
+                    "expected_share_pct",
+                    "opportunity_gap_pct",
+                ]
+            ]
+            .head(5)
+            .to_dict("records")
+        )
+
+        if not meaningful_opportunities.empty:
+            focus_row = meaningful_opportunities.iloc[0]
+            context["focus_state"] = focus_row["state"]
+            context["actual_share_pct"] = float(
+                focus_row["actual_share_pct"]
+            )
+            context["expected_share_pct"] = float(
+                focus_row["expected_share_pct"]
+            )
+            context["opportunity_gap_pct"] = float(
+                focus_row["opportunity_gap_pct"]
+            )
+            context["gap_status"] = classify_opportunity_gap(
+                focus_row["opportunity_gap_pct"]
+            )
+            context["reliability_notes"] = get_reliability_notes(
+                focus_row["state"],
+                selected_year,
+            )
+        else:
+            context["focus_state"] = None
+            context["reliability_notes"] = get_reliability_notes(
+                None,
+                selected_year,
+            )
+
+        return context
+
+    selected_rows = year_predictions[
+        year_predictions["state"] == selected_region
+    ]
+
+    if selected_rows.empty:
+        context["data_available"] = False
+        context["reliability_notes"] = [
+            "No model output is available for this state-year selection."
+        ]
+        return context
+
+    selected_row = selected_rows.iloc[0]
+    context.update(
+        {
+            "data_available": True,
+            "focus_state": selected_region,
+            "actual_visitors_million": round(
+                float(selected_row["visitors_000"]) / 1000,
+                4,
+            ),
+            "expected_visitors_million": round(
+                float(selected_row["expected_visitors_000"]) / 1000,
+                4,
+            ),
+            "actual_share_pct": float(
+                selected_row["actual_share_pct"]
+            ),
+            "expected_share_pct": float(
+                selected_row["expected_share_pct"]
+            ),
+            "opportunity_gap_pp": float(
+                selected_row["opportunity_gap_pp"]
+            ),
+            "opportunity_gap_pct": float(
+                selected_row["opportunity_gap_pct"]
+            ),
+            "gap_status": classify_opportunity_gap(
+                selected_row["opportunity_gap_pct"]
+            ),
+            "reliability_notes": get_reliability_notes(
+                selected_region,
+                selected_year,
+            ),
+        }
+    )
+
+    return context
     
 # --- 1. Page Configuration ---
 st.set_page_config(
@@ -283,8 +465,13 @@ def render_overview():
         st.markdown("<br>", unsafe_allow_html=True)
         selected_region = st.selectbox("Region", states_list, label_visibility="collapsed")
             
-        if st.button("✨ Generate brief", type="primary", use_container_width=True):
-            st.toast(f"✅ Generating official brief for {selected_region} ({selected_year})...")
+        st.button(
+            "✨ AI brief · Phase 2",
+            type="primary",
+            use_container_width=True,
+            disabled=True,
+            help="Gemini-powered analysis will be enabled in Phase 2.",
+        )
 
     # Time calculations
     all_years_sorted = sorted(df['year'].unique().tolist())
@@ -330,17 +517,107 @@ def render_overview():
     v_current = df_current['visitors_M'].sum() if not df_current.empty else 0
     v_prev = df_prev['visitors_M'].sum() if not df_prev.empty else 0
     v_growth = ((v_current - v_prev) / v_prev) * 100 if v_prev > 0 else 0
+    insight_context = build_deterministic_context(
+        selected_region=selected_region,
+        selected_year=selected_year,
+        features=df,
+        predictions=df_ml,
+    )
 
     if prev_year:
         delta_label = f"↑ {v_growth:.1f}% vs {prev_year}" if v_growth >= 0 else f"↓ {abs(v_growth):.1f}% vs {prev_year}"
     else:
-        delta_label = "N/A (Baseline year)"
+        delta_label = None
 
     st.markdown("<br>", unsafe_allow_html=True)
     k1, k2, k3, k4 = st.columns(4)
-    with k1.container(border=True): st.metric(f"Domestic visitors ({selected_year})", f"{v_current:.1f}M", delta_label)
-    with k2.container(border=True): st.metric("Tourism expenditure (2025 Est.)", "RM121.3B", "↑ 13.6% vs baseline")
-    with k3.container(border=True): st.metric("Domestic trips (2025 Est.)", "332.2M", "1.15 trips per visitor", delta_color="off")
+
+    with k1.container(border=True):
+        st.metric(
+            label=f"Domestic visitors ({selected_year})",
+            value=f"{v_current:.1f}M",
+            delta=delta_label,
+        )
+
+    with k2.container(border=True):
+        if selected_region == "Malaysia":
+            if selected_year == 2025:
+                expenditure = NATIONAL_2025_CONTEXT[
+                    "tourism_expenditure_rm_billion"
+                ]
+                expenditure_growth = NATIONAL_2025_CONTEXT[
+                    "tourism_expenditure_growth_pct"
+                ]
+                st.metric(
+                    label="Tourism expenditure (2025)",
+                    value=f"RM{expenditure:.1f}B",
+                    delta=f"+{expenditure_growth:.1f}% year-on-year",
+                )
+            else:
+                st.metric(
+                    label="Tourism expenditure",
+                    value="Not available",
+                    delta="2025 only",
+                    delta_color="off",
+                )
+                st.caption(
+                    "The current dashboard source provides national tourism "
+                    "expenditure for 2025 only."
+                )
+        else:
+            actual_share = insight_context.get("actual_share_pct")
+
+            st.metric(
+                label="Actual national visitor share",
+                value=(
+                    f"{actual_share:.2f}%"
+                    if actual_share is not None
+                    else "Not available"
+                ),
+                delta=f"Observed in {selected_year}",
+                delta_color="off",
+            )
+
+    with k3.container(border=True):
+        if selected_region == "Malaysia":
+            if selected_year == 2025:
+                domestic_trips = NATIONAL_2025_CONTEXT[
+                    "domestic_trips_million"
+                ]
+                trips_per_visitor = NATIONAL_2025_CONTEXT[
+                    "trips_per_visitor"
+                ]
+                st.metric(
+                    label="Domestic trips (2025)",
+                    value=f"{domestic_trips:.1f}M",
+                    delta=f"{trips_per_visitor:.2f} trips per visitor",
+                    delta_color="off",
+                )
+            else:
+                st.metric(
+                    label="Domestic trips",
+                    value="Not available",
+                    delta="2025 only",
+                    delta_color="off",
+                )
+                st.caption(
+                    "The current dashboard source provides national domestic "
+                    "trip totals for 2025 only."
+                )
+        else:
+            expected_share = insight_context.get("expected_share_pct")
+
+            st.metric(
+                label="Model-expected visitor share",
+                value=(
+                    f"{expected_share:.2f}%"
+                    if expected_share is not None
+                    else "Not available"
+                ),
+                delta="Structural benchmark",
+                delta_color="off",
+            )
+
     with k4.container(border=True):
         gap_status = classify_opportunity_gap(top_ml_gap)
         gap_prefix = "+" if top_ml_gap > 0 else ""
@@ -348,7 +625,7 @@ def render_overview():
         st.metric(
             label=f"Relative Gap ({top_ml_state})",
             value=f"{gap_prefix}{top_ml_gap:.1f}%",
-            delta=f"{gap_status['label']} ({selected_year})",
+            delta=gap_status["short_label"],
             delta_color=gap_status["delta_color"],
         )
 
@@ -374,84 +651,297 @@ def render_overview():
             st.plotly_chart(fig_bar, use_container_width=True)
 
     with mid_col2:
-        if selected_region == "Malaysia":
-            copilot_title = "ML Policy Copilot"
-            # Dynamically state the top 2 states
-            copilot_body = f"Our Gradient Boosting model identifies <span style='font-weight: bold;'>{top_ml_state}</span> and <span style='font-weight: bold;'>{top2_ml_state}</span> as having the highest untapped tourism potential relative to their structural benchmarks."
-            copilot_evi = f"Evidence: Model predicts {top_ml_state} has a {top_ml_gap:.1f}% opportunity gap between expected and actual visitor share in {selected_year}."
-        else:
-            actual_share = ml_filter['actual_share_pct'].values[0] if not ml_filter.empty else "N/A"
-            expected_share = ml_filter['expected_share_pct'].values[0] if not ml_filter.empty else "N/A"
-            
-            copilot_title = f"{selected_region} ML Insights"
-            if top_ml_gap > 0:
-                copilot_body = f"Our model identifies <span style='font-weight: bold;'>{selected_region}</span> as a high-potential growth target. Its actual share of national visitors is lower than its structural fundamentals predict."
-            else:
-                copilot_body = f"<span style='font-weight: bold;'>{selected_region}</span> is currently over-performing its structural baseline. Focus policies on sustainability and infrastructure rather than mass promotion."
-            
-            copilot_evi = f"Evidence: Actual Share ({actual_share}%) vs Expected Share ({expected_share}%). Gap: {top_ml_gap}%."
+        focus_state = insight_context.get(
+            "focus_state",
+            selected_region,
+        )
+        focus_gap = insight_context.get(
+            "opportunity_gap_pct",
+            top_ml_gap,
+        )
+        focus_status = classify_opportunity_gap(focus_gap)
+        reliability_notes = insight_context.get(
+            "reliability_notes",
+            [],
+        )
 
-        st.markdown(f"""
-        <div style="background-color: #3B3C54; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 10px; height: 320px;">
-            <div style="color: white; font-family: sans-serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center;">
-                <span style="margin-right: 8px; font-size: 1.6rem;">🤖</span> {copilot_title}
+        if selected_region == "Malaysia":
+            opportunity_rows = insight_context.get(
+                "meaningful_opportunities",
+                [],
+            )
+            opportunity_names = [
+                row["state"]
+                for row in opportunity_rows[:2]
+            ]
+
+            if opportunity_names:
+                highlighted_states = " and ".join(opportunity_names)
+                insight_body = (
+                    f"<b>{highlighted_states}</b> record the largest positive "
+                    f"relative opportunity gaps in {selected_year}. These gaps "
+                    "show differences between actual and model-expected visitor "
+                    "shares; they do not identify the cause."
+                )
+            else:
+                insight_body = (
+                    f"No state exceeds the +{NEUTRAL_GAP_LIMIT:.0f}% "
+                    f"meaningful-gap threshold in {selected_year}."
+                )
+        else:
+            if focus_status["category"] == "positive_gap":
+                insight_body = (
+                    f"<b>{selected_region}</b> received a smaller share of "
+                    "national visitors than its structural benchmark in "
+                    f"{selected_year}. This is a relative opportunity signal, "
+                    "not a forecast or causal finding."
+                )
+            elif focus_status["category"] == "above_expected":
+                insight_body = (
+                    f"<b>{selected_region}</b> received a larger share of "
+                    "national visitors than its structural benchmark in "
+                    f"{selected_year}. This does not by itself indicate "
+                    "sustainability pressure."
+                )
+            else:
+                insight_body = (
+                    f"<b>{selected_region}</b> remained within the ±"
+                    f"{NEUTRAL_GAP_LIMIT:.0f}% neutral band in "
+                    f"{selected_year}. The difference is not promoted as a "
+                    "meaningful opportunity finding."
+                )
+
+        actual_share = insight_context.get("actual_share_pct")
+        expected_share = insight_context.get("expected_share_pct")
+
+        if actual_share is not None and expected_share is not None:
+            evidence_text = (
+                f"Actual share: {actual_share:.2f}% · "
+                f"Expected share: {expected_share:.2f}% · "
+                f"Relative gap: {focus_gap:+.1f}%"
+            )
+        else:
+            evidence_text = (
+                f"Leading relative gap: {focus_gap:+.1f}% "
+                f"({focus_state}, {selected_year})"
+            )
+
+        st.markdown(
+            f"""
+            <div style="
+                background-color: #3B3C54;
+                padding: 25px;
+                border-radius: 12px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+                margin-bottom: 10px;
+                min-height: 320px;
+            ">
+                <div style="
+                    color: white;
+                    font-family: sans-serif;
+                    font-size: 1.4rem;
+                    font-weight: 600;
+                    margin-bottom: 15px;
+                ">
+                    Evidence Brief
+                </div>
+                <div style="
+                    color: #F3F4F6;
+                    font-family: sans-serif;
+                    font-size: 0.95rem;
+                    line-height: 1.5;
+                    margin-bottom: 20px;
+                ">
+                    {insight_body}
+                </div>
+                <div style="
+                    background-color: rgba(255,255,255,0.08);
+                    padding: 15px;
+                    border-radius: 8px;
+                    font-family: sans-serif;
+                    font-size: 0.85rem;
+                    color: #D1D5DB;
+                ">
+                    {evidence_text}
+                </div>
             </div>
-            <div style="color: #F3F4F6; font-family: sans-serif; font-size: 0.95rem; line-height: 1.5; margin-bottom: 20px;">
-                {copilot_body}
-            </div>
-            <div style="background-color: rgba(255,255,255,0.08); padding: 15px; border-radius: 8px; font-family: sans-serif; font-size: 0.85rem; color: #D1D5DB;">
-                {copilot_evi}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.expander("💬 Ask why · show sources"):
-            st.write(f"**Source:** DOSM Domestic Tourism Survey. Predictions generated by LestariLens Gradient Boosting model.")
-            st.write("*Note: Opportunity Gap is a structural benchmark, not a definitive future forecast.*")
+            """,
+            unsafe_allow_html=True,
+        )
+
+        with st.expander("Method, reliability and sources"):
+            st.write(
+                "**Source:** DOSM official Malaysian tourism and "
+                "socioeconomic data."
+            )
+            st.write(
+                "**Method:** Gradient Boosting structural expected-demand "
+                "benchmark."
+            )
+            st.write(
+                "**Interpretation:** Values inside ±5% are treated as close "
+                "to expectation."
+            )
+
+            for note in reliability_notes:
+                st.warning(note)
+
+            st.caption(
+                "This evidence brief is generated deterministically from the "
+                "selected dashboard data. Gemini integration will be added "
+                "in the next phase."
+            )
 
     st.markdown("<br>", unsafe_allow_html=True)
     bot_col1, bot_col2 = st.columns([1.5, 1.5])
 
     with bot_col1:
         with st.container(border=True):
-            st.subheader("What visitors spend on")
-            st.caption(f"Simulated 2025 Benchmark Share (Fixed Scale)")
-            
-            pie_data = pd.DataFrame({
-                'Category': ['Shopping', 'Food & beverages', 'Automotive fuel', 'Other categories'],
-                'Value': [36.9, 16.1, 13.5, 33.5],
-                'Color': ['#E27D60', '#85A88F', '#E8B87B', '#E4E4E4']
-            })
-            
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=pie_data['Category'], values=pie_data['Value'], hole=0.6,
-                marker=dict(colors=pie_data['Color']), textinfo='none', sort=False, direction='clockwise'
-            )])
-            fig_pie.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=10, b=0), 
-                height=250, showlegend=True, 
-                annotations=[dict(text="2025 est.", x=0.5, y=0.5, font_size=18, font_color="#2D3142", showarrow=False)]
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.subheader("National tourism spending mix")
+
+            if selected_year == 2025:
+                st.caption(
+                    "Share of domestic tourism expenditure, Malaysia, 2025"
+                )
+
+                spending_data = pd.DataFrame(
+                    {
+                        "Category": list(
+                            NATIONAL_2025_SPENDING.keys()
+                        ),
+                        "Share": list(
+                            NATIONAL_2025_SPENDING.values()
+                        ),
+                        "Color": [
+                            "#E27D60",
+                            "#85A88F",
+                            "#E8B87B",
+                            "#E4E4E4",
+                        ],
+                    }
+                )
+
+                spending_figure = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=spending_data["Category"],
+                            values=spending_data["Share"],
+                            hole=0.6,
+                            marker={
+                                "colors": spending_data["Color"],
+                            },
+                            textinfo="none",
+                            sort=False,
+                            direction="clockwise",
+                            hovertemplate=(
+                                "%{label}<br>%{value:.1f}%"
+                                "<extra></extra>"
+                            ),
+                        )
+                    ]
+                )
+
+                spending_figure.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin={
+                        "l": 0,
+                        "r": 0,
+                        "t": 10,
+                        "b": 0,
+                    },
+                    height=250,
+                    showlegend=True,
+                    annotations=[
+                        {
+                            "text": "2025",
+                            "x": 0.5,
+                            "y": 0.5,
+                            "font_size": 18,
+                            "font_color": "#2D3142",
+                            "showarrow": False,
+                        }
+                    ],
+                )
+
+                st.plotly_chart(
+                    spending_figure,
+                    use_container_width=True,
+                )
+                st.caption(
+                    "Source: DOSM Domestic Tourism Survey 2025. "
+                    "This is a national spending distribution and does not "
+                    "change with the selected state."
+                )
+            else:
+                st.info(
+                    "The current dashboard source contains the national "
+                    "spending-category breakdown for 2025 only. No value is "
+                    "shown for the selected year."
+                )
 
     with bot_col2:
         with st.container(border=True):
-            st.subheader("Scenario lab")
-            st.caption("Explore redistribution based on selected region")
-            
-            shift_pct = st.slider("Shift projected demand", min_value=0, max_value=20, value=5, format="%d%%")
-            
             if selected_region == "Malaysia":
-                target_state = "Pahang"
-                base_vol = df[(df['year'] == selected_year) & (df['state'] == 'Pahang')]['visitors_M'].sum()
-                scenario_calc = base_vol + (v_current * (shift_pct / 100))
+                st.subheader("Top Opportunity Snapshot")
+                st.caption(
+                    f"Highest positive relative gap in {selected_year}"
+                )
             else:
-                target_state = selected_region
-                scenario_calc = v_current * (1 + (shift_pct / 100))
-                
-            c1, c2 = st.columns(2)
-            c1.metric("Projected Shift Scenario", f"{scenario_calc:.1f}M")
-            c2.metric("Target State", target_state)
+                st.subheader("Model Evidence Snapshot")
+                st.caption(
+                    f"Selected state evidence for {selected_year}"
+                )
+
+            focus_state = insight_context.get("focus_state")
+
+            if focus_state is None:
+                st.info(
+                    "No state exceeds the meaningful positive-gap threshold "
+                    "for this selection."
+                )
+            else:
+                actual_share = insight_context.get("actual_share_pct")
+                expected_share = insight_context.get("expected_share_pct")
+                relative_gap = insight_context.get(
+                    "opportunity_gap_pct"
+                )
+                gap_status = classify_opportunity_gap(relative_gap)
+
+                st.markdown(f"### {focus_state}")
+
+                if selected_region == "Malaysia":
+                    st.caption(
+                        "Ranked #1 by relative opportunity gap for the "
+                        "selected year. This state is selected "
+                        "automatically, not randomly."
+                    )
+
+                evidence_col1, evidence_col2 = st.columns(2)
+
+                evidence_col1.metric(
+                    "Actual visitor share",
+                    f"{actual_share:.2f}%",
+                )
+                evidence_col2.metric(
+                    "Expected visitor share",
+                    f"{expected_share:.2f}%",
+                )
+
+                gap_prefix = "+" if relative_gap > 0 else ""
+
+                st.metric(
+                    "Relative opportunity gap",
+                    f"{gap_prefix}{relative_gap:.1f}%",
+                    gap_status["short_label"],
+                    delta_color=gap_status["delta_color"],
+                )
+
+                for note in insight_context.get(
+                    "reliability_notes",
+                    [],
+                ):
+                    st.caption(note)
 
 
 # ==========================================
@@ -554,7 +1044,7 @@ def render_visitor_flows():
             y=1.04,
             xref="x",
             yref="paper",
-            text="2020–2022 not included in the analytical dataset",
+            text="No observations for 2020–2022 · lines intentionally disconnected",
             showarrow=False,
             font={
                 "size": 11,
@@ -594,8 +1084,8 @@ def render_visitor_flows():
 
     st.caption(
         "Observed years: 2017–2019 and 2023–2025. "
-        "The line is intentionally interrupted for 2020–2022 because those "
-        "years are not part of the analytical dataset."
+        "No observations are available for 2020–2022, so lines are "
+        "intentionally disconnected across this gap."
     )
 
 
@@ -627,36 +1117,130 @@ def render_sustainability():
 # PAGE 4: SCENARIO LAB
 # ==========================================
 def render_scenario_lab():
-    st.markdown(f'<p class="sub-header">POLICY · SIMULATION ({selected_year})</p>', unsafe_allow_html=True)
-    st.header("Scenario Lab: Demand Redistribution")
-    st.markdown(f"Simulate the impact of shifting tourism volume from high-density states to developing targets using the **{selected_year}** baseline.")
-    
-    col1, col2, col3 = st.columns([1, 1, 1.5])
-    df_yr = df[df['year'] == selected_year]
-    
-    with col1:
-        source_state = st.selectbox("Source State (Reduce Demand)", df_yr.sort_values('visitors_M', ascending=False)['state'])
-    with col2:
-        target_state = st.selectbox("Target State (Increase Demand)", df_yr.sort_values('visitors_M')['state'], index=1)
-    with col3:
-        shift_pct = st.slider("Percentage of Source Visitors to Shift", min_value=0, max_value=30, value=5, format="%d%%")
-        
-    source_vol = df_yr[df_yr['state'] == source_state]['visitors_M'].values[0] if not df_yr.empty else 0
-    target_vol = df_yr[df_yr['state'] == target_state]['visitors_M'].values[0] if not df_yr.empty else 0
-    
-    shift_amount = source_vol * (shift_pct / 100)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    
-    with c1.container(border=True):
-        st.subheader(f"📉 {source_state} (Source)")
-        st.metric("New Projected Visitors", f"{source_vol - shift_amount:.1f}M", f"-{shift_amount:.1f}M shifted", delta_color="inverse")
-        
-    with c2.container(border=True):
-        st.subheader(f"📈 {target_state} (Target)")
-        st.metric("New Projected Visitors", f"{target_vol + shift_amount:.1f}M", f"+{shift_amount:.1f}M gained")
+    st.markdown(
+        (
+            f'<p class="sub-header">'
+            f'POLICY · ILLUSTRATIVE SCENARIO ({selected_year})'
+            f'</p>'
+        ),
+        unsafe_allow_html=True,
+    )
+    st.header("Scenario Lab: Visitor Redistribution")
+    st.markdown(
+        "Explore a transparent arithmetic redistribution between two "
+        f"states using observed {selected_year} visitor volumes."
+    )
 
+    st.warning(
+        "This is an illustrative arithmetic scenario. It is not a "
+        "forecast, causal estimate or predicted policy outcome."
+    )
+
+    year_data = (
+        df[df["year"] == selected_year]
+        .sort_values("visitors_M", ascending=False)
+        .copy()
+    )
+
+    if year_data.empty:
+        st.error(
+            "No visitor data is available for the selected year."
+        )
+        return
+
+    state_options = year_data["state"].tolist()
+
+    control_col1, control_col2, control_col3 = st.columns(
+        [1, 1, 1.5]
+    )
+
+    with control_col1:
+        source_state = st.selectbox(
+            "Source state",
+            state_options,
+            key="scenario_source_state",
+        )
+
+    target_options = [
+        state
+        for state in state_options
+        if state != source_state
+    ]
+
+    with control_col2:
+        target_state = st.selectbox(
+            "Target state",
+            target_options,
+            key="scenario_target_state",
+        )
+
+    with control_col3:
+        shift_pct = st.slider(
+            "Illustrative share of source visitors to reallocate",
+            min_value=0,
+            max_value=30,
+            value=5,
+            format="%d%%",
+            key="scenario_shift_pct",
+        )
+
+    source_volume = float(
+        year_data.loc[
+            year_data["state"] == source_state,
+            "visitors_M",
+        ].iloc[0]
+    )
+    target_volume = float(
+        year_data.loc[
+            year_data["state"] == target_state,
+            "visitors_M",
+        ].iloc[0]
+    )
+
+    shift_amount = source_volume * (shift_pct / 100)
+    source_scenario_volume = source_volume - shift_amount
+    target_scenario_volume = target_volume + shift_amount
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    result_col1, result_col2 = st.columns(2)
+
+    with result_col1.container(border=True):
+        st.subheader(f"{source_state} · Source")
+        st.metric(
+            "Illustrative visitor volume",
+            f"{source_scenario_volume:.1f}M",
+            f"-{shift_amount:.1f}M arithmetic reallocation",
+            delta_color="inverse",
+        )
+        st.caption(
+            f"Observed baseline: {source_volume:.1f}M visitors."
+        )
+
+    with result_col2.container(border=True):
+        st.subheader(f"{target_state} · Target")
+        st.metric(
+            "Illustrative visitor volume",
+            f"{target_scenario_volume:.1f}M",
+            f"+{shift_amount:.1f}M arithmetic reallocation",
+        )
+        st.caption(
+            f"Observed baseline: {target_volume:.1f}M visitors."
+        )
+
+    national_before = year_data["visitors_M"].sum()
+    national_after = (
+        national_before
+        - source_volume
+        - target_volume
+        + source_scenario_volume
+        + target_scenario_volume
+    )
+
+    st.caption(
+        f"National total is preserved: {national_before:.1f}M before "
+        f"and {national_after:.1f}M after the illustrative transfer."
+    )
 
 # ==========================================
 # PAGE 5: EVIDENCE & LIMITATIONS
