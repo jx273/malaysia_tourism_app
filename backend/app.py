@@ -1,8 +1,26 @@
+import os
+from io import BytesIO
+from html import escape
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from PIL import Image
 from pathlib import Path
+from dotenv import load_dotenv
+
+from ai_service import (
+    DEFAULT_GEMINI_MODEL,
+    GeminiAssistantError,
+    GeminiBriefError,
+    generate_contextual_answer,
+    generate_tourism_brief,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env")
+APP_BUILD = "2026.09.21.3"
+
 TRAINING_YEARS = (2017, 2018, 2019, 2023)
 HOLDOUT_YEARS = (2024, 2025)
 NEUTRAL_GAP_LIMIT = 5.0
@@ -25,6 +43,16 @@ NATIONAL_2025_SPENDING = {
     "Automotive fuel": 13.5,
     "Other categories": 33.5,
 }
+
+
+def get_gemini_settings():
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    model = os.getenv(
+        "GEMINI_MODEL",
+        DEFAULT_GEMINI_MODEL,
+    ).strip()
+
+    return api_key, model or DEFAULT_GEMINI_MODEL
 
 FEATURE_REQUIRED_COLUMNS = {
     "state",
@@ -266,7 +294,136 @@ def build_deterministic_context(
     )
 
     return context
-    
+
+
+def dataframe_records(dataframe, columns, digits=4):
+    records = dataframe[columns].copy()
+    numeric_columns = records.select_dtypes(include="number").columns
+    records[numeric_columns] = records[numeric_columns].round(digits)
+    return records.to_dict("records")
+
+
+def build_visitor_flows_context(selected_year):
+    observed = df[df["year"] <= selected_year].copy()
+    selected = df[df["year"] == selected_year].copy()
+    top_states = selected.nlargest(3, "visitors_M")["state"].tolist()
+    trajectories = observed[observed["state"].isin(top_states)]
+    return {
+        "page": "Visitor flows",
+        "selected_year": int(selected_year),
+        "observed_years": sorted(observed["year"].unique().tolist()),
+        "missing_years": [2020, 2021, 2022],
+        "top_states_by_visitors": dataframe_records(
+            selected.nlargest(5, "visitors_M"),
+            ["state", "year", "visitors_M"],
+        ),
+        "highlighted_trajectories": dataframe_records(
+            trajectories.sort_values(["state", "year"]),
+            ["state", "year", "visitors_M"],
+        ),
+        "source": "DOSM official Malaysian tourism data",
+        "limitations": [
+            "No observations are available for 2020 to 2022.",
+            "Lines are intentionally disconnected across missing years.",
+            "Observed patterns do not establish causal drivers.",
+        ],
+    }
+
+
+def build_sustainability_context(selected_year):
+    selected = df[df["year"] == selected_year].copy()
+    return {
+        "page": "Sustainability",
+        "selected_year": int(selected_year),
+        "median_log_gdp_per_capita": round(
+            float(selected["log_gdp_per_capita"].median()), 4
+        ),
+        "median_rooms_per_1k_residents": round(
+            float(selected["rooms_per_1k_residents"].median()), 4
+        ),
+        "state_capacity_evidence": dataframe_records(
+            selected.sort_values("visitors_M", ascending=False),
+            [
+                "state",
+                "log_gdp_per_capita",
+                "rooms_per_1k_residents",
+                "visitors_M",
+            ],
+        ),
+        "source": "DOSM official Malaysian tourism and socioeconomic data",
+        "limitations": [
+            "The chart is descriptive and does not measure tourism carrying capacity.",
+            "Bubble size shows visitor volume, not environmental impact.",
+            "Median reference lines are analytical guides, not policy thresholds.",
+        ],
+    }
+
+
+def build_scenario_context(
+    selected_year,
+    source_state,
+    target_state,
+    shift_pct,
+    source_volume,
+    target_volume,
+    source_scenario_volume,
+    target_scenario_volume,
+    national_before,
+    national_after,
+):
+    return {
+        "page": "Scenario lab",
+        "selected_year": int(selected_year),
+        "source_state": source_state,
+        "target_state": target_state,
+        "illustrative_shift_pct": int(shift_pct),
+        "source_observed_visitors_million": round(source_volume, 4),
+        "target_observed_visitors_million": round(target_volume, 4),
+        "source_scenario_visitors_million": round(source_scenario_volume, 4),
+        "target_scenario_visitors_million": round(target_scenario_volume, 4),
+        "national_before_million": round(float(national_before), 4),
+        "national_after_million": round(float(national_after), 4),
+        "source": "Arithmetic transformation of DOSM observed visitor volumes",
+        "limitations": [
+            "This is an illustrative arithmetic scenario, not a forecast.",
+            "It does not estimate behavioral responses, costs or policy feasibility.",
+            "The national visitor total is held constant by construction.",
+        ],
+    }
+
+
+def build_evidence_context(selected_year):
+    selected_predictions = df_ml[df_ml["year"] == selected_year].copy()
+    return {
+        "page": "Evidence",
+        "selected_year": int(selected_year),
+        "training_years": list(TRAINING_YEARS),
+        "holdout_years": list(HOLDOUT_YEARS),
+        "total_records": int(len(df)),
+        "total_states": int(df["state"].nunique()),
+        "observed_years": sorted(df["year"].unique().tolist()),
+        "selected_year_model_output": dataframe_records(
+            selected_predictions.sort_values(
+                "opportunity_gap_pct", ascending=False
+            ),
+            [
+                "state",
+                "actual_share_pct",
+                "expected_share_pct",
+                "opportunity_gap_pct",
+                "is_holdout_year",
+            ],
+        ),
+        "model": "Gradient Boosting structural expected-demand model",
+        "source": "DOSM official Malaysian tourism and socioeconomic data",
+        "limitations": [
+            "The expected value is a structural benchmark, not a forecast.",
+            "The model does not establish causes for observed gaps.",
+            "Perlis and W.P. Putrajaya require additional reliability caution.",
+        ],
+    }
+
+
 # --- 1. Page Configuration ---
 st.set_page_config(
     page_title="LestariLens Intelligence",
@@ -314,6 +471,32 @@ st.markdown("""
     }
     [data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] p {
         color: #E27D60 !important; font-weight: 700 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stChatMessage"] {
+        background: rgba(255,255,255,0.58);
+        border: 1px solid rgba(45,49,66,0.08);
+        border-radius: 10px;
+        padding: 0.55rem;
+    }
+    [data-testid="stSidebar"] [data-testid="stChatMessageContent"] p {
+        font-size: 0.78rem !important;
+        line-height: 1.35 !important;
+    }
+    .ollie-context-chip {
+        display: inline-block;
+        background: rgba(133,168,143,0.18);
+        color: #4E6F58;
+        border-radius: 999px;
+        padding: 0.18rem 0.5rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        margin-bottom: 0.45rem;
+    }
+    .ollie-evidence {
+        color: #60646F;
+        font-size: 0.72rem;
+        line-height: 1.35;
+        margin-top: 0.3rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -450,10 +633,293 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
+@st.cache_data
+def load_ollie_assets():
+    sprite_path = PROJECT_ROOT / "assets" / "images" / "tiger_sheet.png"
+    if not sprite_path.exists():
+        return None, None
+
+    sprite = Image.open(sprite_path).convert("RGBA")
+    frame_size = 64
+    row_index = 7
+    frames = [
+        sprite.crop(
+            (
+                column_index * frame_size,
+                row_index * frame_size,
+                (column_index + 1) * frame_size,
+                (row_index + 1) * frame_size,
+            )
+        )
+        for column_index in range(4)
+    ]
+
+    animation_buffer = BytesIO()
+    frames[0].save(
+        animation_buffer,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        duration=180,
+        loop=0,
+        disposal=2,
+    )
+
+    icon_buffer = BytesIO()
+    frames[0].save(icon_buffer, format="PNG")
+    return animation_buffer.getvalue(), icon_buffer.getvalue()
+
+
+def render_ollie_status(image_placeholder, copy_placeholder, title, subtitle):
+    animation_bytes, _ = load_ollie_assets()
+    if animation_bytes:
+        image_placeholder.image(animation_bytes, width=64)
+    else:
+        image_placeholder.markdown("## 🐯")
+    copy_placeholder.markdown(f"**{title}**  \n{subtitle}")
+
+
+def render_compact_ai_insight(context, title, question, state_key):
+    api_key, model = get_gemini_settings()
+    result_key = f"page_insight::{state_key}"
+
+    with st.container(border=True):
+        heading_col, button_col = st.columns([2.5, 1])
+        with heading_col:
+            st.subheader(title)
+            st.caption("Optional Gemini interpretation grounded in this page's data.")
+        with button_col:
+            generate_clicked = st.button(
+                "Generate insight",
+                key=f"generate::{state_key}",
+                width="stretch",
+                disabled=not bool(api_key),
+                help=(
+                    "Generate a short page-specific interpretation."
+                    if api_key
+                    else "Add GEMINI_API_KEY to the project .env file."
+                ),
+            )
+
+        if generate_clicked:
+            try:
+                with st.spinner("Ollie is checking the page evidence..."):
+                    result = generate_contextual_answer(
+                        api_key=api_key,
+                        context=context,
+                        question=question,
+                        model=model,
+                    )
+                    st.session_state[result_key] = result.model_dump()
+            except GeminiAssistantError:
+                st.warning(
+                    "Ollie could not return a fully grounded insight. "
+                    "The dashboard evidence remains available."
+                )
+
+        result = st.session_state.get(result_key)
+        if result:
+            st.write(result["answer"])
+            for evidence_item in result.get("evidence", []):
+                st.markdown(f"- {evidence_item}")
+            st.caption(f"Limitation: {result['caveat']}")
+
+
+def render_ollie_assistant(context, page_name, year):
+    api_key, model = get_gemini_settings()
+    st.session_state.setdefault("ollie_messages", [])
+    voice_mode_key = f"ollie_voice_mode::{page_name}::{year}"
+    voice_nonce_key = f"ollie_voice_nonce::{page_name}::{year}"
+    st.session_state.setdefault(voice_mode_key, False)
+    st.session_state.setdefault(voice_nonce_key, 0)
+
+    with st.sidebar:
+        st.divider()
+        status_image_column, status_copy_column = st.columns([1, 3])
+        status_image_placeholder = status_image_column.empty()
+        status_copy_placeholder = status_copy_column.empty()
+        render_ollie_status(
+            image_placeholder=status_image_placeholder,
+            copy_placeholder=status_copy_placeholder,
+            title="Ask Ollie",
+            subtitle="Grounded tourism data assistant",
+        )
+        st.markdown(
+            f'<span class="ollie-context-chip">{escape(page_name)} · {year}</span>',
+            unsafe_allow_html=True,
+        )
+
+        current_messages = [
+            message
+            for message in st.session_state["ollie_messages"]
+            if message["page"] == page_name and message["year"] == year
+        ]
+
+        with st.container(height=245, border=False):
+            if not current_messages:
+                st.caption(
+                    "Ask about the current page. Ollie reads validated data, "
+                    "not a screenshot."
+                )
+            for message in current_messages[-4:]:
+                if message["role"] == "assistant":
+                    _, ollie_icon_bytes = load_ollie_assets()
+                    with st.chat_message(
+                        "assistant",
+                        avatar=ollie_icon_bytes or "🐯",
+                    ):
+                        st.write(message["content"])
+                        for item in message.get("evidence", []):
+                            st.markdown(f"- {item}")
+                        if message.get("caveat"):
+                            st.caption(f"Limitation: {message['caveat']}")
+                else:
+                    with st.chat_message("user"):
+                        st.write(message["content"])
+
+        prompt_value = st.chat_input(
+            "Ask Ollie about this page",
+            key=f"ollie_input::{page_name}::{year}",
+        )
+
+        voice_col, clear_col = st.columns(2)
+        with voice_col:
+            if st.button(
+                "🎙️ Voice",
+                key=f"open_voice::{page_name}::{year}",
+                width="stretch",
+                disabled=st.session_state[voice_mode_key],
+                help="Open the recorder and request microphone permission.",
+            ):
+                st.session_state[voice_mode_key] = True
+                st.rerun()
+        with clear_col:
+            if st.button(
+                "Clear",
+                key=f"clear_ollie::{page_name}::{year}",
+                width="stretch",
+            ):
+                st.session_state["ollie_messages"] = [
+                    message
+                    for message in st.session_state["ollie_messages"]
+                    if not (
+                        message["page"] == page_name
+                        and message["year"] == year
+                    )
+                ]
+                st.rerun()
+        st.caption(
+            "Powered by Gemini 3.1 Flash Lite · grounded in page data · "
+            f"Build {APP_BUILD}"
+        )
+
+        audio_file = None
+        if st.session_state[voice_mode_key]:
+            st.caption(
+                "Voice mode is active. Safari will request microphone "
+                "permission before recording."
+            )
+            audio_file = st.audio_input(
+                "Record a voice question",
+                sample_rate=16000,
+                key=(
+                    f"ollie_recorder::{page_name}::{year}::"
+                    f"{st.session_state[voice_nonce_key]}"
+                ),
+                label_visibility="collapsed",
+            )
+            if st.button(
+                "Cancel voice input",
+                key=f"cancel_voice::{page_name}::{year}",
+                width="stretch",
+            ):
+                st.session_state[voice_mode_key] = False
+                st.session_state[voice_nonce_key] += 1
+                st.rerun()
+
+        if prompt_value or audio_file:
+            question = (prompt_value or "").strip()
+            audio_bytes = audio_file.getvalue() if audio_file else None
+            audio_mime_type = (
+                getattr(audio_file, "type", None) or "audio/wav"
+                if audio_file
+                else "audio/wav"
+            )
+
+            if not api_key:
+                st.warning("Add GEMINI_API_KEY to the project .env file.")
+                return
+
+            model_history = [
+                {
+                    "role": message["role"],
+                    "content": message["content"],
+                }
+                for message in current_messages[-4:]
+            ]
+            render_ollie_status(
+                image_placeholder=status_image_placeholder,
+                copy_placeholder=status_copy_placeholder,
+                title="Ollie is checking",
+                subtitle="Validating against page data",
+            )
+
+            try:
+                with st.spinner("Preparing a grounded answer..."):
+                    answer = generate_contextual_answer(
+                        api_key=api_key,
+                        context=context,
+                        question=question,
+                        history=model_history,
+                        model=model,
+                        audio_bytes=audio_bytes,
+                        audio_mime_type=audio_mime_type,
+                    )
+
+                displayed_question = question
+                if answer.transcript:
+                    displayed_question = f"🎙️ {answer.transcript}"
+                elif not displayed_question:
+                    displayed_question = "🎙️ Voice question"
+
+                st.session_state["ollie_messages"].extend(
+                    [
+                        {
+                            "role": "user",
+                            "content": displayed_question,
+                            "page": page_name,
+                            "year": year,
+                        },
+                        {
+                            "role": "assistant",
+                            "content": answer.answer,
+                            "evidence": answer.evidence,
+                            "caveat": answer.caveat,
+                            "page": page_name,
+                            "year": year,
+                        },
+                    ]
+                )
+                st.session_state["ollie_messages"] = st.session_state[
+                    "ollie_messages"
+                ][-20:]
+                st.session_state[voice_mode_key] = False
+                st.session_state[voice_nonce_key] += 1
+                st.rerun()
+            except GeminiAssistantError:
+                st.session_state[voice_mode_key] = False
+                st.session_state[voice_nonce_key] += 1
+                st.warning(
+                    "Ollie could not verify that answer against the current "
+                    "page data. Please try a more specific question."
+                )
+
+
 # ==========================================
 # PAGE 1: OVERVIEW DASHBOARD
 # ==========================================
 def render_overview():
+    gemini_api_key, gemini_model = get_gemini_settings()
     col_head1, col_head2 = st.columns([2.5, 1.5])
     states_list = ["Malaysia"] + sorted(df['state'].unique().tolist())
 
@@ -465,12 +931,17 @@ def render_overview():
         st.markdown("<br>", unsafe_allow_html=True)
         selected_region = st.selectbox("Region", states_list, label_visibility="collapsed")
             
-        st.button(
-            "✨ AI brief · Phase 2",
+        generate_brief_clicked = st.button(
+            "✨ Generate grounded AI brief",
             type="primary",
-            use_container_width=True,
-            disabled=True,
-            help="Gemini-powered analysis will be enabled in Phase 2.",
+            width="stretch",
+            disabled=not bool(gemini_api_key),
+            help=(
+                "Generate a Gemini analysis grounded only in the selected "
+                "dashboard context."
+                if gemini_api_key
+                else "Add GEMINI_API_KEY to the project .env file."
+            ),
         )
 
     # Time calculations
@@ -523,6 +994,28 @@ def render_overview():
         features=df,
         predictions=df_ml,
     )
+
+    brief_state_key = f"gemini_brief::{selected_region}::{selected_year}"
+
+    if generate_brief_clicked:
+        try:
+            with st.spinner("Analyzing the verified dashboard context..."):
+                generated_brief = generate_tourism_brief(
+                    api_key=gemini_api_key,
+                    context=insight_context,
+                    model=gemini_model,
+                )
+                st.session_state[brief_state_key] = (
+                    generated_brief.model_dump()
+                )
+        except GeminiBriefError:
+            st.warning(
+                "Gemini is temporarily unavailable or returned an "
+                "unverifiable response. The deterministic evidence brief "
+                "remains available."
+            )
+
+    ai_brief = st.session_state.get(brief_state_key)
 
     if prev_year:
         delta_label = f"↑ {v_growth:.1f}% vs {prev_year}" if v_growth >= 0 else f"↓ {abs(v_growth):.1f}% vs {prev_year}"
@@ -648,7 +1141,7 @@ def render_overview():
                 fig_bar.update_xaxes(type='category')
 
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=40, t=10, b=0), height=280, xaxis=dict(showgrid=False, showticklabels=False, title=""), yaxis=dict(showgrid=False, title=""))
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, width="stretch")
 
     with mid_col2:
         focus_state = insight_context.get(
@@ -726,6 +1219,19 @@ def render_overview():
                 f"({focus_state}, {selected_year})"
             )
 
+        if ai_brief:
+            panel_title = "Gemini Opportunity Brief"
+            panel_body = (
+                f"<b>{escape(ai_brief['headline'])}</b><br><br>"
+                f"{escape(ai_brief['interpretation'])}<br><br>"
+                f"<b>Recommended investigation:</b> "
+                f"{escape(ai_brief['recommended_action'])}<br><br>"
+                f"<b>Limitation:</b> {escape(ai_brief['caveat'])}"
+            )
+        else:
+            panel_title = "Evidence Brief"
+            panel_body = insight_body
+
         st.markdown(
             f"""
             <div style="
@@ -743,7 +1249,7 @@ def render_overview():
                     font-weight: 600;
                     margin-bottom: 15px;
                 ">
-                    Evidence Brief
+                    {panel_title}
                 </div>
                 <div style="
                     color: #F3F4F6;
@@ -752,7 +1258,7 @@ def render_overview():
                     line-height: 1.5;
                     margin-bottom: 20px;
                 ">
-                    {insight_body}
+                    {panel_body}
                 </div>
                 <div style="
                     background-color: rgba(255,255,255,0.08);
@@ -787,9 +1293,14 @@ def render_overview():
                 st.warning(note)
 
             st.caption(
-                "This evidence brief is generated deterministically from the "
-                "selected dashboard data. Gemini integration will be added "
-                "in the next phase."
+                (
+                    f"Gemini model: {gemini_model}. Narrative is generated "
+                    "from the deterministic dashboard context; all numeric "
+                    "evidence is rendered directly from validated data."
+                    if ai_brief
+                    else "This evidence brief is generated deterministically "
+                    "from the selected dashboard data."
+                )
             )
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -866,7 +1377,7 @@ def render_overview():
 
                 st.plotly_chart(
                     spending_figure,
-                    use_container_width=True,
+                    width="stretch",
                 )
                 st.caption(
                     "Source: DOSM Domestic Tourism Survey 2025. "
@@ -943,11 +1454,14 @@ def render_overview():
                 ):
                     st.caption(note)
 
+    return insight_context
+
 
 # ==========================================
 # PAGE 2: VISITOR FLOWS
 # ==========================================
 def render_visitor_flows():
+    page_context = build_visitor_flows_context(selected_year)
     st.markdown(
         (
             f'<p class="sub-header">'
@@ -980,7 +1494,7 @@ def render_visitor_flows():
         st.warning(
             "No visitor trend data is available for the selected year."
         )
-        return
+        return page_context
 
     first_year = int(observed_data["year"].min())
     display_years = list(range(first_year, selected_year + 1))
@@ -1079,7 +1593,7 @@ def render_visitor_flows():
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
     )
 
     st.caption(
@@ -1087,6 +1601,17 @@ def render_visitor_flows():
         "No observations are available for 2020–2022, so lines are "
         "intentionally disconnected across this gap."
     )
+
+    render_compact_ai_insight(
+        context=page_context,
+        title="Ollie Trend Insight",
+        question=(
+            "Summarize the most decision-relevant visitor trend visible on "
+            "this page without inferring a cause."
+        ),
+        state_key=f"visitor_flows::{selected_year}",
+    )
+    return page_context
 
 
 # ==========================================
@@ -1098,6 +1623,7 @@ def render_sustainability():
     st.markdown(f"Analyze local infrastructure capacity versus economic output based on the **{selected_year}** global filter.")
     
     df_yr = df[df['year'] == selected_year].copy()
+    page_context = build_sustainability_context(selected_year)
     
     fig_scatter = px.scatter(df_yr, x="log_gdp_per_capita", y="rooms_per_1k_residents", 
                              size="visitors_M", color="visitors_M", hover_name="state",
@@ -1110,7 +1636,18 @@ def render_sustainability():
         fig_scatter.add_hline(y=df_yr['rooms_per_1k_residents'].median(), line_width=1, line_dash="dash", line_color="gray")
     
     fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=500)
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scatter, width="stretch")
+
+    render_compact_ai_insight(
+        context=page_context,
+        title="Ollie Capacity Insight",
+        question=(
+            "Identify the most decision-relevant infrastructure-capacity "
+            "pattern on this page without treating it as a policy threshold."
+        ),
+        state_key=f"sustainability::{selected_year}",
+    )
+    return page_context
 
 
 # ==========================================
@@ -1146,7 +1683,11 @@ def render_scenario_lab():
         st.error(
             "No visitor data is available for the selected year."
         )
-        return
+        return {
+            "page": "Scenario lab",
+            "selected_year": int(selected_year),
+            "data_available": False,
+        }
 
     state_options = year_data["state"].tolist()
 
@@ -1242,10 +1783,37 @@ def render_scenario_lab():
         f"and {national_after:.1f}M after the illustrative transfer."
     )
 
+    page_context = build_scenario_context(
+        selected_year=selected_year,
+        source_state=source_state,
+        target_state=target_state,
+        shift_pct=shift_pct,
+        source_volume=source_volume,
+        target_volume=target_volume,
+        source_scenario_volume=source_scenario_volume,
+        target_scenario_volume=target_scenario_volume,
+        national_before=national_before,
+        national_after=national_after,
+    )
+    render_compact_ai_insight(
+        context=page_context,
+        title="Ollie Scenario Interpretation",
+        question=(
+            "Interpret this arithmetic redistribution and state what a policy "
+            "decision-maker must not conclude from it."
+        ),
+        state_key=(
+            f"scenario::{selected_year}::{source_state}::{target_state}::"
+            f"{shift_pct}"
+        ),
+    )
+    return page_context
+
 # ==========================================
 # PAGE 5: EVIDENCE & LIMITATIONS
 # ==========================================
 def render_evidence():
+    page_context = build_evidence_context(selected_year)
     st.markdown('<p class="sub-header">DATA · TRANSPARENCY</p>', unsafe_allow_html=True)
     st.header("Evidence & Methodology")
     st.markdown("Direct access to the underlying DOSM dataset, ML Predictions, and project limitations.")
@@ -1286,20 +1854,31 @@ def render_evidence():
         )
     
     st.subheader("Historical Data (DOSM)")
-    st.dataframe(df, use_container_width=True, height=300)
+    st.dataframe(df, width="stretch", height=300)
     
     st.subheader("Machine Learning Output (Opportunity Gap)")
-    st.dataframe(df_ml, use_container_width=True)
+    st.dataframe(df_ml, width="stretch")
+    st.info(
+        "Ollie can answer methodology and selected-year evidence questions "
+        "from the sidebar. No automatic AI summary is generated on this page."
+    )
+    return page_context
 
 
 # --- 9. Execution Engine ---
 if selected_page == "Overview":
-    render_overview()
+    current_page_context = render_overview()
 elif selected_page == "Visitor flows":
-    render_visitor_flows()
+    current_page_context = render_visitor_flows()
 elif selected_page == "Sustainability":
-    render_sustainability()
+    current_page_context = render_sustainability()
 elif selected_page == "Scenario lab":
-    render_scenario_lab()
+    current_page_context = render_scenario_lab()
 elif selected_page == "Evidence":
-    render_evidence()
+    current_page_context = render_evidence()
+
+render_ollie_assistant(
+    context=current_page_context,
+    page_name=selected_page,
+    year=int(selected_year),
+)

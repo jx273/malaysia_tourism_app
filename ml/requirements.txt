@@ -1,7 +1,7 @@
-# Data & AI track - pinned dependencies.
-# Tested with Python 3.13.14 on Windows 11. Install into ml/.venv:
+# Data, dashboard and AI dependencies.
+# macOS setup from the project root:
 #   python -m venv .venv
-#   .venv/Scripts/activate        (Windows)  |  source .venv/bin/activate  (macOS/Linux)
+#   source .venv/bin/activate
 #   pip install -r requirements.txt
 
 pandas==3.0.5
@@ -14,3 +14,12 @@ jupyter==1.1.1
 # Imported directly by src/predict.py and src/tune.py to load and save the model.
 # It arrives as a scikit-learn dependency, but a file that imports it should pin it.
 joblib==1.6.0
+
+# Dashboard runtime and visualizations.
+streamlit>=1.64.0,<2.0.0
+plotly>=6.0.0,<7.0.0
+python-dotenv>=1.0.0,<2.0.0
+
+# Gemini client and validated structured output.
+google-genai>=1.0.0,<2.0.0
+pydantic>=2.10.0,<3.0.0
