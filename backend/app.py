@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import os
+from pathlib import Path
 
 # --- 1. Page Configuration ---
 st.set_page_config(
@@ -15,7 +15,6 @@ st.set_page_config(
 # --- 2. Safe Global CSS for Premium UI ---
 st.markdown("""
 <style>
-    /* Main Backgrounds */
     [data-testid="stAppViewContainer"] { background-color: #F7F5F0 !important; font-family: 'Inter', sans-serif; }
     [data-testid="stSidebar"] { background-color: #EBE8DE !important; border-right: 1px solid #DEDAD0; }
     [data-testid="stHeader"] { display: none !important; }
@@ -24,7 +23,6 @@ st.markdown("""
     h1, h2, h3 { color: #2D3142 !important; font-weight: 600 !important; margin-top:0; padding-top:0;}
     .sub-header { color: #E27D60; font-size: 0.85rem; text-transform: uppercase; font-weight: 700; margin-bottom: -15px; letter-spacing: 1px;}
 
-    /* Force all bordered containers to be crisp white */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #FFFFFF !important;
         border-radius: 12px !important;
@@ -32,18 +30,15 @@ st.markdown("""
         border: 1px solid #EAE6DB !important;
     }
 
-    /* Metric Cards Override */
     [data-testid="stMetricValue"] { color: #2D3142 !important; font-weight: 700 !important; }
     [data-testid="stMetricLabel"] { color: #888C95 !important; font-weight: 600 !important; }
 
-    /* Button Styling */
     .stButton>button { border-radius: 8px !important; font-weight: bold !important; transition: 0.2s; border: none !important; }
     button[kind="primary"] { background-color: #E27D60 !important; color: white !important; }
     button[kind="secondary"] { background-color: #85A88F !important; color: white !important; border-radius: 20px !important; }
     button[kind="primary"]:hover { background-color: #D36C4F !important; }
     button[kind="secondary"]:hover { background-color: #72967C !important; }
     
-    /* Sleek Navigation Menu */
     [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none; }
     [data-testid="stSidebar"] div[role="radiogroup"] > label {
         padding: 10px 15px; border-radius: 8px; margin-bottom: 5px; background-color: transparent; transition: 0.2s all; cursor: pointer;
@@ -58,22 +53,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. Data Loading (Using your Exact Absolute Paths) ---
+# --- 3. Data Loading (Dynamic Relative Paths) ---
 @st.cache_data
 def load_data():
     try:
-        # Use raw strings (r"...") so Windows backslashes are read correctly
-        features_path = r"C:\Users\Hong Yik\Documents\tourism app\malaysia_tourism_app\ml\handoff\for_hongyik\state_features.csv"
-        ml_path = r"C:\Users\Hong Yik\Documents\tourism app\malaysia_tourism_app\ml\handoff\for_hongyik\sample_predictions.csv"
+        # Dynamically resolve project root regardless of where the script is run from
+        project_root = Path(__file__).resolve().parents[1]
+        
+        features_path = project_root / "ml" / "handoff" / "for_hongyik" / "state_features.csv"
+        ml_path = project_root / "ml" / "handoff" / "for_hongyik" / "sample_predictions.csv"
         
         df = pd.read_csv(features_path)
         df['visitors_M'] = df['visitors_000'] / 1000
         
         df_ml = pd.read_csv(ml_path)
-        
         return df, df_ml
-    except FileNotFoundError as e:
-        st.error(f"Critical Error: Could not find the file at {e.filename}. Please check if the file exists.")
+    except Exception as e:
+        st.error(f"Critical Error: Could not load data files. Ensure 'state_features.csv' and 'sample_predictions.csv' exist in 'ml/handoff/for_hongyik/'.\n\nError details: {e}")
         st.stop()
 
 df, df_ml = load_data()
@@ -123,19 +119,28 @@ def render_overview():
     curr_idx = all_years_sorted.index(selected_year)
     prev_year = all_years_sorted[curr_idx - 1] if curr_idx > 0 else None
 
+    # Sync ML Data with Selected Year
+    ml_selected_year = df_ml[df_ml['year'] == selected_year].copy()
+
     # Filtering Logic
     if selected_region == "Malaysia":
         df_current = df[df['year'] == selected_year]
         df_prev = df[df['year'] == prev_year] if prev_year else pd.DataFrame()
         
-        chart_data = df_ml.sort_values(by='opportunity_gap_pct', ascending=False).head(5).copy()
-        chart_title = f"Top Untapped Potential (ML Opportunity Gap %)"
+        # Sort ONLY the selected year's ML data
+        chart_data = ml_selected_year.sort_values(by='opportunity_gap_pct', ascending=False).head(5).copy()
+        chart_title = f"Top Untapped Potential (ML Opportunity Gap %, {selected_year})"
         y_axis = 'state'
         x_axis = 'opportunity_gap_pct'
         
-        top_ml_state = chart_data.iloc[0]['state'] if not chart_data.empty else "N/A"
-        top_ml_gap = chart_data.iloc[0]['opportunity_gap_pct'] if not chart_data.empty else 0
-        
+        # Safe extraction
+        if not chart_data.empty:
+            top_ml_state = chart_data.iloc[0]['state']
+            top_ml_gap = chart_data.iloc[0]['opportunity_gap_pct']
+            top2_ml_state = chart_data.iloc[1]['state'] if len(chart_data) > 1 else ""
+        else:
+            top_ml_state, top_ml_gap, top2_ml_state = "N/A", 0, ""
+            
     else:
         df_current = df[(df['year'] == selected_year) & (df['state'] == selected_region)]
         df_prev = df[(df['year'] == prev_year) & (df['state'] == selected_region)] if prev_year else pd.DataFrame()
@@ -147,7 +152,7 @@ def render_overview():
         x_axis = 'visitors_M'
         
         top_ml_state = selected_region
-        ml_filter = df_ml[df_ml['state'] == selected_region]
+        ml_filter = ml_selected_year[ml_selected_year['state'] == selected_region]
         top_ml_gap = ml_filter['opportunity_gap_pct'].values[0] if not ml_filter.empty else 0
 
     v_current = df_current['visitors_M'].sum() if not df_current.empty else 0
@@ -162,13 +167,13 @@ def render_overview():
     st.markdown("<br>", unsafe_allow_html=True)
     k1, k2, k3, k4 = st.columns(4)
     with k1.container(border=True): st.metric(f"Domestic visitors ({selected_year})", f"{v_current:.1f}M", delta_label)
-    with k2.container(border=True): st.metric("Tourism expenditure", "RM121.3B", "↑ 13.6% vs last year")
-    with k3.container(border=True): st.metric("Domestic trips", "332.2M", "1.15 trips per visitor", delta_color="off")
+    with k2.container(border=True): st.metric("Tourism expenditure (2025 Est.)", "RM121.3B", "↑ 13.6% vs baseline")
+    with k3.container(border=True): st.metric("Domestic trips (2025 Est.)", "332.2M", "1.15 trips per visitor", delta_color="off")
     with k4.container(border=True): 
         if top_ml_gap > 0:
-            st.metric(f"ML Opportunity ({top_ml_state})", f"+{top_ml_gap:.1f}%", "Untapped Potential", delta_color="normal")
+            st.metric(f"ML Opportunity ({top_ml_state})", f"+{top_ml_gap:.1f}%", f"Untapped ({selected_year})", delta_color="normal")
         else:
-            st.metric(f"ML Opportunity ({top_ml_state})", f"{top_ml_gap:.1f}%", "Over-indexed", delta_color="inverse")
+            st.metric(f"ML Opportunity ({top_ml_state})", f"{top_ml_gap:.1f}%", f"Over-indexed ({selected_year})", delta_color="inverse")
 
     st.markdown("<br>", unsafe_allow_html=True)
     mid_col1, mid_col2 = st.columns([2.3, 1])
@@ -180,9 +185,9 @@ def render_overview():
             
             if selected_region == "Malaysia":
                 colors = ['#E5E2D9', '#E8B87B', '#85A88F', '#E27D60', '#D36C4F']
-                chart_data['Color'] = colors[-len(chart_data):]
+                chart_data['Color'] = colors[-len(chart_data):] if not chart_data.empty else []
                 fig_bar = px.bar(chart_data.iloc[::-1], x=x_axis, y=y_axis, orientation='h', text=x_axis)
-                fig_bar.update_traces(marker_color=chart_data.iloc[::-1]['Color'], marker_line_width=0, texttemplate='+%{text:.1f}%', textposition='outside', textfont=dict(color='#2D3142', size=11))
+                fig_bar.update_traces(marker_color=chart_data.iloc[::-1]['Color'] if not chart_data.empty else [], marker_line_width=0, texttemplate='+%{text:.1f}%', textposition='outside', textfont=dict(color='#2D3142', size=11))
             else:
                 fig_bar = px.bar(chart_data, x=y_axis, y=x_axis, orientation='v', text=x_axis)
                 fig_bar.update_traces(marker_color='#E8B87B', marker_line_width=0, texttemplate='%{text:.1f}M', textposition='outside', textfont=dict(color='#2D3142', size=11))
@@ -194,10 +199,10 @@ def render_overview():
     with mid_col2:
         if selected_region == "Malaysia":
             copilot_title = "ML Policy Copilot"
-            copilot_body = f"Our Gradient Boosting model identifies <span style='font-weight: bold;'>{top_ml_state}</span> and <span style='font-weight: bold;'>Kedah</span> as having the highest untapped tourism potential relative to their structural benchmarks."
-            copilot_evi = f"Evidence: Model predicts {top_ml_state} has a {top_ml_gap:.1f}% opportunity gap between expected and actual visitor share."
+            # Dynamically state the top 2 states
+            copilot_body = f"Our Gradient Boosting model identifies <span style='font-weight: bold;'>{top_ml_state}</span> and <span style='font-weight: bold;'>{top2_ml_state}</span> as having the highest untapped tourism potential relative to their structural benchmarks."
+            copilot_evi = f"Evidence: Model predicts {top_ml_state} has a {top_ml_gap:.1f}% opportunity gap between expected and actual visitor share in {selected_year}."
         else:
-            ml_filter = df_ml[df_ml['state'] == selected_region]
             actual_share = ml_filter['actual_share_pct'].values[0] if not ml_filter.empty else "N/A"
             expected_share = ml_filter['expected_share_pct'].values[0] if not ml_filter.empty else "N/A"
             
@@ -224,8 +229,8 @@ def render_overview():
         """, unsafe_allow_html=True)
         
         with st.expander("💬 Ask why · show sources"):
-            source_years = f"{prev_year}-{selected_year}" if prev_year else f"{selected_year}"
-            st.write(f"**Source:** DOSM Domestic Tourism Survey (States), {source_years}. Predictions generated by LestariLens Gradient Boosting model.")
+            st.write(f"**Source:** DOSM Domestic Tourism Survey. Predictions generated by LestariLens Gradient Boosting model.")
+            st.write("*Note: Opportunity Gap is a structural benchmark, not a definitive future forecast.*")
 
     st.markdown("<br>", unsafe_allow_html=True)
     bot_col1, bot_col2 = st.columns([1.5, 1.5])
@@ -233,7 +238,7 @@ def render_overview():
     with bot_col1:
         with st.container(border=True):
             st.subheader("What visitors spend on")
-            st.caption(f"Share of domestic tourism expenditure, {selected_year}")
+            st.caption(f"Simulated 2025 Benchmark Share (Fixed Scale)")
             
             pie_data = pd.DataFrame({
                 'Category': ['Shopping', 'Food & beverages', 'Automotive fuel', 'Other categories'],
@@ -248,7 +253,7 @@ def render_overview():
             fig_pie.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=10, b=0), 
                 height=250, showlegend=True, 
-                annotations=[dict(text=str(selected_year), x=0.5, y=0.5, font_size=20, font_color="#2D3142", showarrow=False)]
+                annotations=[dict(text="2025 est.", x=0.5, y=0.5, font_size=18, font_color="#2D3142", showarrow=False)]
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
@@ -353,22 +358,31 @@ def render_scenario_lab():
 
 
 # ==========================================
-# PAGE 5: EVIDENCE
+# PAGE 5: EVIDENCE & LIMITATIONS
 # ==========================================
 def render_evidence():
     st.markdown('<p class="sub-header">DATA · TRANSPARENCY</p>', unsafe_allow_html=True)
-    st.header("Evidence & Raw Data")
-    st.markdown("Direct access to the underlying DOSM (Department of Statistics Malaysia) dataset and ML Predictions.")
+    st.header("Evidence & Methodology")
+    st.markdown("Direct access to the underlying DOSM dataset, ML Predictions, and project limitations.")
     
+    # Critical Model Limitations section requested in Code Review
+    with st.expander("⚠️ ML Methodology & Limitations", expanded=True):
+        st.markdown("""
+        - **Training vs Holdout:** Data from **2017-2023** was utilized for model training. **2024-2025** serves as an untouched holdout dataset to evaluate structural baselines.
+        - **Opportunity Gap Interpretation:** The gap represents a structural benchmark comparing actual visitor share against economic and infrastructure fundamentals. It is **not** a direct future forecast. A positive gap indicates untapped potential but does not definitively prove a lack of marketing exposure alone.
+        - **Data Constraints:** Metrics for **Perlis** and **W.P. Putrajaya** possess lower predictive reliability due to naturally smaller sample sizes and outlier density within DOSM records.
+        """)
+        
+    st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Records", len(df))
     col2.metric("Total States", df['state'].nunique())
     col3.metric("Year Range", f"{df['year'].min()} - {df['year'].max()}")
     
     st.subheader("Historical Data (DOSM)")
-    st.dataframe(df, use_container_width=True, height=400)
+    st.dataframe(df, use_container_width=True, height=300)
     
-    st.subheader("Machine Learning Output")
+    st.subheader("Machine Learning Output (Opportunity Gap)")
     st.dataframe(df_ml, use_container_width=True)
 
 
