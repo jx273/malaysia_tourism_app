@@ -161,6 +161,12 @@ def main() -> int:
         holdout.loc[group.index, "actual_share"] = group.actual_000 / group.actual_000.sum()
     holdout["gap_share_pp"] = (holdout.expected_share - holdout.actual_share) * 100
     holdout["gap_share_rel_pct"] = (holdout.expected_share / holdout.actual_share - 1) * 100
+    # Expected share applied to the year's own national total, so the level and the gap
+    # sit on one scale and cannot contradict each other on screen.
+    for year, group in holdout.groupby("year"):
+        national = group.actual_000.sum()
+        holdout.loc[group.index, "expected_benchmarked_000"] = group.expected_share * national
+    holdout["gap_visitors_000"] = holdout.expected_benchmarked_000 - holdout.actual_000
 
     head("opportunity gap, 2025")
     latest = holdout[holdout.year == 2025].sort_values("gap_share_rel_pct", ascending=False)
@@ -177,9 +183,10 @@ def main() -> int:
     log(f"  correlation of the 2024 and 2025 gap rankings: "
         f"{stability[2024].corr(stability[2025], method='spearman'):.3f}")
 
-    gap_table = holdout[["state", "year", "actual_000", "expected_000", "gap_000", "gap_pct",
-                         "actual_share", "expected_share", "gap_share_pp", "gap_share_rel_pct",
-                         "population_000", "rooms"]].copy()
+    gap_table = holdout[["state", "year", "actual_000", "expected_benchmarked_000",
+                         "gap_visitors_000", "actual_share", "expected_share",
+                         "gap_share_pp", "gap_share_rel_pct", "expected_000", "gap_000",
+                         "gap_pct", "population_000", "rooms"]].copy()
     gap_table.to_parquet(PROCESSED / "opportunity_gap.parquet", index=False)
     log(f"\n  written: data/processed/opportunity_gap.parquet ({len(gap_table)} rows)")
 
@@ -195,8 +202,9 @@ def main() -> int:
             ax.annotate(row.state, (row.actual_000, row.expected_000), fontsize=6,
                         xytext=(3, 3), textcoords="offset points")
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("Actual visitors ('000)"); ax.set_ylabel("Model-expected visitors ('000)")
-    ax.set_title("Holdout 2024-2025: expected against actual")
+    ax.set_xlabel("Actual visitors ('000)")
+    ax.set_ylabel("Raw model output ('000)")
+    ax.set_title("Holdout 2024-2025: raw model output against actual (accuracy view)")
     ax.legend(frameon=False, fontsize=8)
     fig.savefig(FIGURES / "11_holdout_actual_vs_expected.png", bbox_inches="tight", dpi=130)
     plt.close(fig)

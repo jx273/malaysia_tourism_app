@@ -98,6 +98,11 @@ def predict(payload: dict) -> dict:
       year      required, int
       features  optional {feature: value} overrides, for scenario analysis
 
+    expected_visitors_000 is the expected share applied to that year's national total,
+    so it is directly comparable with actual_visitors_000. model_raw_expected_000 is the
+    unscaled model output, kept for diagnostics only - do not display it beside an
+    actual.
+
     Returns a JSON-serialisable dict; see the API contract for the full shape.
     """
     if not isinstance(payload, dict):
@@ -139,11 +144,22 @@ def predict(payload: dict) -> dict:
 
     actual = row.get("visitors_000")
     actual = None if actual is None or pd.isna(actual) else float(actual)
-    actual_share = gap_pct = gap_pp = None
+    actual_share = gap_pct = gap_pp = benchmarked = gap_visitors = None
     if actual is not None and rows["visitors_000"].notna().all():
-        actual_share = actual / float(rows["visitors_000"].sum())
+        national_actual = float(rows["visitors_000"].sum())
+        actual_share = actual / national_actual
         gap_pct = (expected_share / actual_share - 1.0) * 100.0
         gap_pp = (expected_share - actual_share) * 100.0
+        # The model's raw level is anchored on its training years and runs
+        # systematically low for later ones, so showing it beside an actual invites the
+        # question "how can actual exceed expected while the gap says the state is
+        # below expectation?". Rescaling the expected share to the year's own national
+        # total puts both on one scale; the level gap then agrees with the share gap by
+        # construction, since both sides carry the same national total.
+        # This uses the year's published national total, so it is a benchmark for a year
+        # already observed, never a forecast.
+        benchmarked = expected_share * national_actual
+        gap_visitors = benchmarked - actual
 
     if state in HIGH_ERROR_STATES:
         warnings.append(
@@ -157,8 +173,10 @@ def predict(payload: dict) -> dict:
     return {
         "state": state,
         "year": year,
-        "expected_visitors_000": round(expected, 1),
+        "expected_visitors_000": None if benchmarked is None else round(benchmarked, 1),
         "actual_visitors_000": None if actual is None else round(actual, 1),
+        "gap_visitors_000": None if gap_visitors is None else round(gap_visitors, 1),
+        "model_raw_expected_000": round(expected, 1),
         "expected_share_pct": round(expected_share * 100, 4),
         "actual_share_pct": None if actual_share is None else round(actual_share * 100, 4),
         "opportunity_gap_pct": None if gap_pct is None else round(gap_pct, 1),

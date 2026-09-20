@@ -10,3 +10,7 @@ pyarrow==25.0.1
 matplotlib==3.11.2
 scikit-learn==1.9.1
 jupyter==1.1.1
+
+# Imported directly by src/predict.py and src/tune.py to load and save the model.
+# It arrives as a scikit-learn dependency, but a file that imports it should pin it.
+joblib==1.6.0
