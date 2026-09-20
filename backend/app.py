@@ -17,7 +17,7 @@ st.markdown("""
 <style>
     [data-testid="stAppViewContainer"] { background-color: #F7F5F0 !important; font-family: 'Inter', sans-serif; }
     [data-testid="stSidebar"] { background-color: #EBE8DE !important; border-right: 1px solid #DEDAD0; }
-    [data-testid="stHeader"] { display: none !important; }
+    [data-testid="stHeader"] { background-color: transparent !important; }
     
     .block-container { padding-top: 2.5rem !important; max-width: 1400px !important; }
     h1, h2, h3 { color: #2D3142 !important; font-weight: 600 !important; margin-top:0; padding-top:0;}
@@ -30,8 +30,10 @@ st.markdown("""
         border: 1px solid #EAE6DB !important;
     }
 
-    [data-testid="stMetricValue"] { color: #2D3142 !important; font-weight: 700 !important; }
-    [data-testid="stMetricLabel"] { color: #888C95 !important; font-weight: 600 !important; }
+    /* Fixed Metric wrapping for long state names */
+    [data-testid="stMetricValue"] { color: #2D3142 !important; font-weight: 700 !important; white-space: normal !important; line-height: 1.1 !important; font-size: 1.6rem !important;}
+    [data-testid="stMetricValue"] > div { white-space: normal !important; }
+    [data-testid="stMetricLabel"] { color: #888C95 !important; font-weight: 600 !important; white-space: normal !important; }
 
     .stButton>button { border-radius: 8px !important; font-weight: bold !important; transition: 0.2s; border: none !important; }
     button[kind="primary"] { background-color: #E27D60 !important; color: white !important; }
