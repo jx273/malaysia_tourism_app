@@ -13,13 +13,13 @@ class WalkingMascot extends StatefulWidget {
 }
 
 class _WalkingMascotState extends State<WalkingMascot> {
-  // 默认停在右下角安全位置
+  // Default position is at the bottom right corner of the screen
   double _x = 300.0; 
   double _y = 100.0;
   
   bool _isDragging = false;
-  bool _isResting = true; // 默认休息状态
-  bool _movingRight = false; // 默认面向左边
+  bool _isResting = true; 
+  bool _movingRight = false; 
   int _textIndex = 0;
   Timer? _behaviorTimer;
   final Random _rnd = Random();
@@ -34,7 +34,7 @@ class _WalkingMascotState extends State<WalkingMascot> {
   @override
   void initState() {
     super.initState();
-    // 初始设置一个靠右的位置 (等待第一次 build 后如果有屏幕宽度再修正)
+    // Set the initial position to the right side of the screen after the first frame is rendered
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -51,7 +51,7 @@ class _WalkingMascotState extends State<WalkingMascot> {
     super.dispose();
   }
 
-  // 走一下，休息一下的逻辑
+  // Every 5 seconds, randomly decide to either rest or walk in a random direction
   void _startBehaviorLoop() {
     _behaviorTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted || _isDragging) return;
@@ -59,7 +59,7 @@ class _WalkingMascotState extends State<WalkingMascot> {
       setState(() {
         _textIndex = (_textIndex + 1) % _phrases.length;
         
-        // 70% 概率休息，30% 概率走动
+        // 70% chance to rest, 30% chance to walk
         if (_rnd.nextDouble() > 0.3) {
           _isResting = true;
         } else {
@@ -68,19 +68,19 @@ class _WalkingMascotState extends State<WalkingMascot> {
           
           final screenW = MediaQuery.of(context).size.width;
           
-          // 确保单次至少走 50 像素，最多走 120 像素，拒绝原地踏步
+          // Ensure that the mascot moves at least 50 pixels and at most 120 pixels in one go, avoiding standing still
           double moveDelta = _rnd.nextDouble() * 70 + 50; 
           
           if (_movingRight) {
             _x += moveDelta;
-            // 碰到右边缘就强行回头
+            // If the mascot moves beyond the right edge, set it to the maximum allowed position and change direction
             if (_x > screenW - 80) {
               _x = screenW - 80;
               _movingRight = false;
             }
           } else {
             _x -= moveDelta;
-            // 碰到左边缘就强行回头
+            // If the mascot moves beyond the left edge, set it to the minimum allowed position and change direction
             if (_x < 20) {
               _x = 20;
               _movingRight = true;
@@ -125,7 +125,7 @@ class _WalkingMascotState extends State<WalkingMascot> {
             onPanEnd: (_) => setState(() => _isDragging = false),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center, // 居中对齐文字气泡和动物
+              crossAxisAlignment: CrossAxisAlignment.center, 
               children: [
                 if (!_isDragging)
                   AnimatedSwitcher(

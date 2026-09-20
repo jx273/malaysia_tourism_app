@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../models/tourism_event.dart';
-import '../services/api_service.dart';
-
+import '../services/api_service.dart'; 
 class MockEventRepository {
   static List<TourismEvent> events = [
     // Default fallback events in case the backend is completely unreachable
@@ -54,13 +55,13 @@ class MockEventRepository {
 
   static Future<void> fetchEventsFromBackend() async {
     try {
-      // Use the unified ApiService to ensure we respect the cross-platform IP rules
+      // Calls ApiService, which safely handles the 10.170.x.x IP for physical devices
       final fetchedEvents = await ApiService.fetchEvents();
       if (fetchedEvents.isNotEmpty) {
         events = fetchedEvents;
       }
     } catch (e) {
-      debugPrint('Backend unreachable, using local fallback events: $e');
+      debugPrint('Backend unreachable, using local fallback. Error: $e');
     }
   }
 }

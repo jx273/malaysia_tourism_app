@@ -19,14 +19,12 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // 底层全局印花
           Positioned.fill(child: CustomPaint(painter: _PatternPainter())),
           
           ListView(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 120),
             physics: const BouncingScrollPhysics(),
             children: [
-              // 1. 吉祥物选择
               const Text('Companion Mascot', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF3D405B))),
               const SizedBox(height: 12),
               ValueListenableBuilder<MascotType>(
@@ -51,7 +49,6 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // 2. 偏好设置 (带 Icon 的横向布局列)
               const Text('Preferences', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF3D405B))),
               const SizedBox(height: 12),
               Container(
@@ -63,7 +60,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // Location 选择器
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       child: Row(
@@ -93,14 +89,14 @@ class SettingsScreen extends StatelessWidget {
                     // Language
                     _settingsRow(Icons.language_rounded, 'Language', 'English (Default)', const Color(0xFF81B29A)),
                     Divider(height: 1, color: Colors.grey.shade200, indent: 52),
-                    // Notification (模拟项，让界面更丰满)
+                    // Notification 
                     _settingsRow(Icons.notifications_active_rounded, 'Notifications', 'Enabled', const Color(0xFFF2CC8F)),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
 
-              // 3. 账户操作区 (极简登录/登出)
+              // Account Section (Login/Logout)
               const Text('Account', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF3D405B))),
               const SizedBox(height: 12),
               ValueListenableBuilder<bool>(
@@ -143,7 +139,6 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 48),
 
-              // 4. 底部版权与版本号
               Center(
                 child: Column(
                   children: [

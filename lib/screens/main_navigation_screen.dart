@@ -27,8 +27,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F1DE), // 暖调奶油底色
-      extendBody: true, // 让页面内容可以沉到导航栏下方（配合毛玻璃）
+      backgroundColor: const Color(0xFFF4F1DE), 
+      extendBody: true, 
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
         switchInCurve: Curves.easeOutCubic,
@@ -67,7 +67,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.75), // 苹果风磨砂半透明
+                  color: Colors.white.withValues(alpha: 0.75), 
                   border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
                 ),
                 child: BottomNavigationBar(

@@ -39,10 +39,8 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_isLogin && _nameController.text.trim().isNotEmpty) {
       settings.userName.value = _nameController.text.trim();
     }
-    // 触发登录状态变更，main.dart 会自动将页面切换为 Home
     settings.isLoggedIn.value = true;
     
-    // 如果是从 Profile 作为访客点进来的，登录后把当前页面 Pop 掉
     if (Navigator.canPop(context)) {
       Navigator.pop(context);
     }
@@ -57,19 +55,16 @@ class _AuthScreenState extends State<AuthScreen> {
       backgroundColor: const Color(0xFFF4F1DE),
       body: Stack(
         children: [
-          // 全局淡色印花背景
           Positioned.fill(child: CustomPaint(painter: _PatternPainter())),
           
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
-                // 限制最大宽度，保证在电脑网页端表单依旧精致小巧
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // 若能返回（例如访客模式点进来的），显示关闭按钮
                     if (Navigator.canPop(context))
                       Align(
                         alignment: Alignment.topLeft,
@@ -79,7 +74,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                       ),
                     
-                    // 顶部吉祥物
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -104,7 +98,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // 核心：玻璃态 (Glassmorphism) 表单框
                     ClipRRect(
                       borderRadius: BorderRadius.circular(28),
                       child: BackdropFilter(
@@ -112,7 +105,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(28),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.65), // 苹果质感半透明白
+                            color: Colors.white.withValues(alpha: 0.65), 
                             borderRadius: BorderRadius.circular(28),
                             border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 1.5),
                             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 24, offset: const Offset(0, 10))],
@@ -128,7 +121,6 @@ class _AuthScreenState extends State<AuthScreen> {
                               _buildTextField(Icons.lock_outline, 'Password', isPassword: true, focusNode: _pwdFocus),
                               const SizedBox(height: 32),
                               
-                              // 珊瑚红渐变按钮
                               SizedBox(
                                 width: double.infinity,
                                 height: 52,

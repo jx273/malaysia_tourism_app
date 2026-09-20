@@ -5,10 +5,8 @@ class UserSettings {
   static final UserSettings instance = UserSettings._internal();
   UserSettings._internal();
 
-// 新增所在州属状态，默认 Johor
   final ValueNotifier<String> selectedState = ValueNotifier<String>('Johor');
   
-  // DOSM 官方规范的 16 个州属/直辖区
   final List<String> states = [
     'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan', 'Pahang',
     'Pulau Pinang', 'Perak', 'Perlis', 'Selangor', 'Terengganu', 'Sabah',
