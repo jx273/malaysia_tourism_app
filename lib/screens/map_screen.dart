@@ -14,14 +14,13 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   final MapController _mapController = MapController();
   TourismEvent? _selectedEvent;
   
   final LatLng _malaysiaCenter = const LatLng(4.0, 109.0);
   final double _defaultZoom = 5.0;
 
-  // 复古奶油地图滤镜
   final ColorFilter _mapThemeFilter = const ColorFilter.matrix([
     0.85, 0.1,  0.0,  0, 25, 
     0.1,  0.85, 0.1,  0, 30, 
@@ -29,12 +28,62 @@ class _MapScreenState extends State<MapScreen> {
     0,    0,    0,    1, 0,  
   ]);
 
+@override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  void _animatedMapMove(LatLng destLocation, double destZoom) {
+    // 1. Create a separate controller for each flight to prevent animation listeners from stacking and conflicting
+    final controller = AnimationController(
+      vsync: this, 
+      duration: const Duration(milliseconds: 600)
+    );
+    
+    final latTween = Tween<double>(begin: _mapController.camera.center.latitude, end: destLocation.latitude);
+    final lngTween = Tween<double>(begin: _mapController.camera.center.longitude, end: destLocation.longitude);
+    final zoomTween = Tween<double>(begin: _mapController.camera.zoom, end: destZoom);
+
+    final Animation<double> animation = CurvedAnimation(parent: controller, curve: Curves.easeOutCubic);
+
+    controller.addListener(() {
+      _mapController.move(
+        LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
+        zoomTween.evaluate(animation),
+      );
+    });
+
+    // 2. Automatically dispose of itself when the animation ends to free up memory and notify the underlying map to load the final view tiles
+    animation.addStatusListener((status) {
+      if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
+        controller.dispose();
+      }
+    });
+
+    controller.forward();
+  }
+
   void _zoomIn() {
-    _mapController.move(_mapController.camera.center, _mapController.camera.zoom + 1.2);
+    final currentZoom = _mapController.camera.zoom;
+    if (currentZoom >= 17.5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reached maximum zoom! 🐯🔍'), duration: Duration(seconds: 1)),
+      );
+      return;
+    }
+    _animatedMapMove(_mapController.camera.center, currentZoom + 1.2);
   }
 
   void _zoomOut() {
-    _mapController.move(_mapController.camera.center, _mapController.camera.zoom - 1.2);
+    final currentZoom = _mapController.camera.zoom;
+    if (currentZoom <= 5.0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are viewing the whole Malaysia map! 🗺️🐯'), duration: Duration(seconds: 1)),
+      );
+      return;
+    }
+    _animatedMapMove(_mapController.camera.center, currentZoom - 1.2);
   }
 
   @override
@@ -45,7 +94,7 @@ class _MapScreenState extends State<MapScreen> {
       backgroundColor: const Color(0xFFF4F1DE),
       body: Stack(
         children: [
-          // 1. 底层地图
+          // 1. Base Map Layer
           ColorFiltered(
             colorFilter: _mapThemeFilter,
             child: FlutterMap(
@@ -55,9 +104,6 @@ class _MapScreenState extends State<MapScreen> {
                 initialZoom: _defaultZoom,
                 minZoom: 4.5,
                 maxZoom: 18,
-                cameraConstraint: CameraConstraint.contain(
-                  bounds: LatLngBounds(const LatLng(-1.0, 97.0), const LatLng(9.0, 121.0)),
-                ),
                 onTap: (_, _) => setState(() => _selectedEvent = null),
               ),
               children: [
@@ -72,14 +118,14 @@ class _MapScreenState extends State<MapScreen> {
 
                     return Marker(
                       point: eventLocation,
-                      width: 120, 
-                      height: 120,
+                      width: 75, 
+                      height: 75,
                       child: Center(
                         child: GestureDetector(
                           behavior: HitTestBehavior.deferToChild,
                           onTap: () {
                             setState(() => _selectedEvent = ev);
-                            _mapController.move(eventLocation, 13.0);
+                            _animatedMapMove(eventLocation, 13.0); 
                           },
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -89,11 +135,11 @@ class _MapScreenState extends State<MapScreen> {
                                 duration: const Duration(milliseconds: 400),
                                 curve: Curves.elasticOut,
                                 child: Container(
-                                  padding: const EdgeInsets.all(5),
+                                  padding: const EdgeInsets.all(3),
                                   decoration: BoxDecoration(
                                     color: isSel ? const Color(0xFFE07A5F) : Colors.white,
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: isSel ? Colors.white : const Color(0xFF81B29A), width: 2.5),
+                                    border: Border.all(color: isSel ? Colors.white : const Color(0xFF81B29A), width: 2.0),
                                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
                                   ),
                                   child: ValueListenableBuilder<MascotType>(
@@ -101,7 +147,7 @@ class _MapScreenState extends State<MapScreen> {
                                     builder: (_, mascotType, _) => PixelMascot(
                                       type: mascotType,
                                       action: isSel ? MascotAction.happy : MascotAction.idleFront,
-                                      size: 38, 
+                                      size: 28, 
                                     ),
                                   ),
                                 ),
@@ -128,42 +174,81 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 2. 顶部标题栏 (去掉了阻挡点击的渐变色，保证右上角绝对能按到)
+          // 2. Top Title Bar (Ghost Gradient + Button Penetration)
           Positioned(
             top: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle),
-                      child: const Icon(Icons.explore, color: Color(0xFF3D405B), size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('Discovery Map', style: TextStyle(color: Color(0xFF3D405B), fontWeight: FontWeight.w900, fontSize: 20)),
-                    const Spacer(),
-                    // 右上角返回默认中心按钮
-                    Material(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      shape: const CircleBorder(),
-                      elevation: 4,
-                      child: IconButton(
-                        icon: const Icon(Icons.my_location, color: Color(0xFF3D405B), size: 22),
-                        onPressed: () {
-                          setState(() => _selectedEvent = null);
-                          _mapController.move(_malaysiaCenter, _defaultZoom);
-                        },
+            child: Stack(
+              children: [
+                IgnorePointer(
+                  child: Container(
+                    height: 140, 
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFFF4F1DE).withValues(alpha: 1.0),
+                          const Color(0xFFF4F1DE).withValues(alpha: 0.8),
+                          const Color(0xFFF4F1DE).withValues(alpha: 0.0),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), shape: BoxShape.circle),
+                          child: const Icon(Icons.explore, color: Color(0xFF3D405B), size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text('Discovery Map', style: TextStyle(color: Color(0xFF3D405B), fontWeight: FontWeight.w900, fontSize: 20)),
+                        const Spacer(),
+                        // Right top corner: one-click back to the whole Malaysia map
+                        Material(
+                          color: Colors.white,
+                          shape: const CircleBorder(),
+                          elevation: 0,
+                          child: IconButton(
+                            icon: const Icon(Icons.my_location, color: Color(0xFF3D405B), size: 22),
+                            onPressed: () {
+                              final currentZoom = _mapController.camera.zoom;
+                              if (currentZoom <= 5.5) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('You are already viewing the whole Malaysia map! 🗺️'), 
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setState(() => _selectedEvent = null);
+                              _animatedMapMove(_malaysiaCenter, _defaultZoom);
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Back to whole Malaysia view 🇲🇾'), 
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // 3. 右侧缩放按钮 (+ 和 -)
+          // 3. Right side zoom buttons (+ and -)
           Positioned(
             right: 16,
             top: MediaQuery.of(context).padding.top + 80,
@@ -188,7 +273,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 4. 底部弹出的活动详情卡片
+          // 4. Bottom pop-up event detail card
           Positioned(
             left: 20, right: 20, bottom: 120,
             child: AnimatedSwitcher(

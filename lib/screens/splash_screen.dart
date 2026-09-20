@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// 注意这里引入 main.dart 里的 AuthWrapper
 import '../main.dart'; 
 import '../data/mock_events.dart';
 import '../widgets/pixel_mascot.dart';
@@ -33,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     MockEventRepository.fetchEventsFromBackend();
     
-    // 停留 1.5 秒后启动扩散散开动画，然后进入 AuthWrapper 智能路由
+    // stay 1.5s -> fade out 0.4s -> scale up 0.6s -> navigate to AuthWrapper
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
         _controller.forward().then((_) {
@@ -58,26 +57,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
-  // 辅助函数：绘制复古马赛克像素块
   Widget _buildPixelBlock(Color color, double size, {double opacity = 1.0}) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: color.withValues(alpha: opacity),
-        borderRadius: BorderRadius.circular(size * 0.2), // 微圆角的像素块
+        borderRadius: BorderRadius.circular(size * 0.2), 
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 智能获取你们现有的两只小动物（如果没有两只，就两边显示一样的）
     final mascot1 = MascotType.values.first;
     final mascot2 = MascotType.values.length > 1 ? MascotType.values[1] : MascotType.values.first;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F1DE), // 奶油底色
+      backgroundColor: const Color(0xFFF4F1DE), 
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
@@ -89,36 +86,40 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // 1. 惊喜设计：马赛克与小动物的共舞舞台
                     SizedBox(
-                      width: 140,
-                      height: 120,
+                      width: 200, 
+                      height: 180, 
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // 背景的散落像素块
-                          Positioned(top: 10, left: 20, child: _buildPixelBlock(const Color(0xFFE07A5F), 12)),
-                          Positioned(top: 30, right: 15, child: _buildPixelBlock(const Color(0xFF81B29A), 18, opacity: 0.6)),
-                          Positioned(bottom: 10, left: 35, child: _buildPixelBlock(const Color(0xFFF2CC8F), 22)),
-                          Positioned(bottom: 25, right: 30, child: _buildPixelBlock(const Color(0xFF3D405B), 14, opacity: 0.8)),
                           
-                          // 中间的两位小动物！
+                          Positioned(top: 10, left: 60, child: _buildPixelBlock(const Color(0xFFE07A5F), 14)), 
+                          Positioned(top: 20, right: 60, child: _buildPixelBlock(const Color(0xFFF2CC8F), 18, opacity: 0.8)), 
+                          
+                          Positioned(top: 65, right: 15, child: _buildPixelBlock(const Color(0xFF81B29A), 22, opacity: 0.6)), 
+                          Positioned(bottom: 50, right: 25, child: _buildPixelBlock(const Color(0xFF3D405B), 12, opacity: 0.7)), 
+                          
+                          Positioned(bottom: 10, right: 70, child: _buildPixelBlock(const Color(0xFFE07A5F), 16)), 
+                          Positioned(bottom: 20, left: 55, child: _buildPixelBlock(const Color(0xFFF2CC8F), 26)),
+                          
+                          Positioned(bottom: 60, left: 15, child: _buildPixelBlock(const Color(0xFF81B29A), 15, opacity: 0.9)), 
+                          Positioned(top: 50, left: 25, child: _buildPixelBlock(const Color(0xFF3D405B), 18, opacity: 0.5)), 
+
                           Positioned(
-                            left: 25,
-                            bottom: 30,
-                            child: PixelMascot(type: mascot1, action: MascotAction.happy, size: 45),
+                            left: 50,
+                            bottom: 50,
+                            child: PixelMascot(type: mascot1, action: MascotAction.happy, size: 50),
                           ),
                           Positioned(
-                            right: 25,
-                            bottom: 30,
-                            child: PixelMascot(type: mascot2, action: MascotAction.happy, size: 45),
+                            right: 50,
+                            bottom: 50,
+                            child: PixelMascot(type: mascot2, action: MascotAction.happy, size: 50),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
                     
-                    // 2. 标题排版
                     const Text(
                       'JALAN JALAN',
                       style: TextStyle(
