@@ -1,6 +1,8 @@
 import 'dart:io';
-import 'dart:ui';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
 import '../data/passport_repository.dart';
 import '../data/user_settings.dart';
@@ -10,7 +12,6 @@ import '../widgets/pixel_mascot.dart';
 class PassportScreen extends StatelessWidget {
   const PassportScreen({super.key});
 
-  // Reuseable static extractor: extract a single frame of the mascot sprite sheet
   Widget _staticMascotSticker(MascotType type) {
     final assetPath = type == MascotType.tapir ? 'assets/images/tapir_sheet.png' : 'assets/images/tiger_sheet.png';
     const scale = 50.0 / 64.0;
@@ -30,6 +31,7 @@ class PassportScreen extends StatelessWidget {
   void _showEnlargedPostcard(BuildContext context, PostcardMemory mem) {
     final timeString = TimeOfDay.fromDateTime(mem.checkInTime).format(context);
     final dateString = '${mem.checkInTime.day.toString().padLeft(2, '0')}/${mem.checkInTime.month.toString().padLeft(2, '0')}/${mem.checkInTime.year}';
+    final GlobalKey boundaryKey = GlobalKey(); 
 
     showGeneralDialog(
       context: context,
@@ -51,59 +53,60 @@ class PassportScreen extends StatelessWidget {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
-                    ),
-                    child: Column(
-                      children: [
-                        AspectRatio(
-                          aspectRatio: 3 / 4,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: mem.userPhotoUrl.startsWith('http') 
-                                    ? Image.network(mem.userPhotoUrl, fit: BoxFit.cover)
-                                    : Image.file(File(mem.userPhotoUrl), fit: BoxFit.cover),
-                              ),
-                              Positioned(
-                                top: 12, right: 12,
-                                child: Text(
-                                  '$dateString $timeString',
-                                  style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 10, fontWeight: FontWeight.w900, shadows: [Shadow(color: Colors.white, blurRadius: 3)]),
+                  RepaintBoundary(
+                    key: boundaryKey,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
+                      ),
+                      child: Column(
+                        children: [
+                          AspectRatio(
+                            aspectRatio: 3 / 4,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: mem.userPhotoUrl.startsWith('http') 
+                                      ? Image.network(mem.userPhotoUrl, fit: BoxFit.cover)
+                                      : Image.file(File(mem.userPhotoUrl), fit: BoxFit.cover),
                                 ),
-                              ),
-                              Positioned(
-                                bottom: 12, left: 12,
-                                child: ValueListenableBuilder<MascotType>(
-                                  valueListenable: UserSettings.instance.selectedMascot,
-                                  builder: (_, m, _) => _staticMascotSticker(m),
+                                Positioned(
+                                  top: 12, right: 12,
+                                  child: Text(
+                                    '$dateString $timeString',
+                                    style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 7, fontWeight: FontWeight.w900, shadows: [Shadow(color: Colors.white, blurRadius: 3)]),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                Positioned(
+                                  bottom: 12, left: 12,
+                                  child: ValueListenableBuilder<MascotType>(
+                                    valueListenable: UserSettings.instance.selectedMascot,
+                                    builder: (_, m, _) => _staticMascotSticker(m),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          mem.event.title, 
-                          textAlign: TextAlign.center, 
-                          maxLines: 1, 
-                          overflow: TextOverflow.ellipsis, 
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF3D405B))
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          mem.note.isEmpty ? '' : '"${mem.note}"',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
+                          const SizedBox(height: 16),
+                          Text(
+                            mem.event.title, 
+                            textAlign: TextAlign.center, 
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF3D405B))
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            mem.note.isEmpty ? '' : '"${mem.note}"',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -115,8 +118,20 @@ class PassportScreen extends StatelessWidget {
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3D405B), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                         icon: const Icon(Icons.share, size: 16),
                         label: const Text('Share Story'),
-                        onPressed: () {
-                          Share.share('Check out my visit to ${mem.event.title}! "${mem.note}"');
+                        onPressed: () async {
+                          final textToShare = 'Check out my visit to ${mem.event.title}! "${mem.note}"';
+                          try {
+                            RenderRepaintBoundary boundary = boundaryKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+                            ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+                            ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+                            if (byteData != null) {
+                              final file = File('${Directory.systemTemp.path}/share_mem.png');
+                              await file.writeAsBytes(byteData.buffer.asUint8List());
+                              await Share.shareXFiles([XFile(file.path)], text: textToShare);
+                            }
+                          } catch (e) {
+                            Share.share(textToShare);
+                          }
                         },
                       ),
                     ],
@@ -219,9 +234,9 @@ class PassportScreen extends StatelessWidget {
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       child: Text(
                                         mem.event.title,
-                                        maxLines: 2,
+                                        maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF3D405B)),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 8, color: Color(0xFF3D405B)),
                                       ),
                                     ),
                                   ],

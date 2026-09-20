@@ -1,14 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
-import '../data/plan_repository.dart';
 import '../data/passport_repository.dart';
 import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
 import '../widgets/mascot_chat_sheet.dart';
-import '../widgets/pixel_mascot.dart'; 
-import 'dart:math';
+import '../widgets/pixel_mascot.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final TourismEvent event;
@@ -19,8 +16,9 @@ class EventDetailScreen extends StatefulWidget {
 }
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
-  final PlanRepository _planRepo = PlanRepository.instance;
+  final PassportRepository _planRepo = PassportRepository.instance;
   final ImagePicker _picker = ImagePicker();
+  bool _isInPlan = false;
 
   Widget _staticMascotSticker(MascotType type) {
     final assetPath = type == MascotType.tapir ? 'assets/images/tapir_sheet.png' : 'assets/images/tiger_sheet.png';
@@ -57,13 +55,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     if (!mounted) return;
 
-    final noteController = TextEditingController(text: "Having a great time at ${widget.event.title}!");
+    // Check if memory already exists for this event
+    final existingMem = PassportRepository.instance.getMemoryForEvent(widget.event.id);
+    String initialNote = "";
+    if (existingMem != null && existingMem.note != "Had a great time here!") {
+      initialNote = existingMem.note;
+    }
+
+    final noteController = TextEditingController(text: initialNote);
+    final GlobalKey boundaryKey = GlobalKey(); // Kept for layout boundary structure
     final now = DateTime.now();
     final timeString = TimeOfDay.fromDateTime(now).format(context);
     final dateString = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
-
-    final actions = [MascotAction.happy, MascotAction.walkRight, MascotAction.idleFront];
-    final randomAction = actions[Random().nextInt(actions.length)];
 
     showDialog(
       context: context,
@@ -76,67 +79,70 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
-                ),
-                child: Column(
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 3 / 4,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: finalPhotoPath.startsWith('http') 
-                                ? Image.network(finalPhotoPath, fit: BoxFit.cover)
-                                : Image.file(File(finalPhotoPath), fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            top: 12, right: 12,
-                            child: Text(
-                              '$dateString $timeString',
-                              style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 10, fontWeight: FontWeight.w900, shadows: [Shadow(color: Colors.white, blurRadius: 3)]),
+              RepaintBoundary(
+                key: boundaryKey,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
+                  ),
+                  child: Column(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: finalPhotoPath.startsWith('http') 
+                                  ? Image.network(finalPhotoPath, fit: BoxFit.cover)
+                                  : Image.file(File(finalPhotoPath), fit: BoxFit.cover),
                             ),
-                          ),
-                          Positioned(
-                            bottom: 12, left: 12,
-                            child: ValueListenableBuilder<MascotType>(
-                              valueListenable: UserSettings.instance.selectedMascot,
-                              builder: (_, m, _) => _staticMascotSticker(m),
+                            Positioned(
+                              top: 12, right: 12,
+                              child: Text(
+                                '$dateString $timeString',
+                                style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 7, fontWeight: FontWeight.w900, shadows: [Shadow(color: Colors.white, blurRadius: 3)]),
+                              ),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              bottom: 12, left: 12,
+                              child: ValueListenableBuilder<MascotType>(
+                                valueListenable: UserSettings.instance.selectedMascot,
+                                builder: (_, m, _) => _staticMascotSticker(m),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.event.title, 
-                      textAlign: TextAlign.center, 
-                      maxLines: 1, 
-                      overflow: TextOverflow.ellipsis, 
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF3D405B))
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: noteController,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        hintText: 'Edit your memory note...',
-                        hintStyle: TextStyle(color: const Color(0xFFE07A5F).withValues(alpha: 0.5)),
-                        filled: true,
-                        fillColor: const Color(0xFFF4F1DE).withValues(alpha: 0.5),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.event.title, 
+                        textAlign: TextAlign.center, 
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF3D405B))
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: noteController,
+                        maxLines: 3,
+                        maxLength: 80, 
+                        textAlign: TextAlign.center, 
+                        style: const TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          hintText: 'Tap to write a note about this memory',
+                          hintStyle: TextStyle(color: const Color(0xFFE07A5F).withValues(alpha: 0.5)),
+                          filled: true,
+                          fillColor: const Color(0xFFF4F1DE).withValues(alpha: 0.5),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          counterText: '', 
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -145,39 +151,29 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.share, color: Color(0xFF3D405B)),
-                onPressed: () {
-                  Share.share('Check out my visit to ${widget.event.title}! "${noteController.text}"');
-                },
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF81B29A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF81B29A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              final finalNote = noteController.text.trim().isEmpty ? "Had a great time here!" : noteController.text.trim();
+              PassportRepository.instance.addMemory(
+                PostcardMemory(
+                  id: existingMem?.id ?? 'mem_${DateTime.now().millisecondsSinceEpoch}',
+                  event: widget.event,
+                  note: finalNote,
+                  checkInTime: now,
+                  userPhotoUrl: finalPhotoPath,
                 ),
-                onPressed: () {
-                  PassportRepository.instance.addMemory(
-                    PostcardMemory(
-                      id: 'mem_${DateTime.now().millisecondsSinceEpoch}',
-                      event: widget.event,
-                      note: noteController.text.trim(),
-                      checkInTime: now,
-                      userPhotoUrl: finalPhotoPath,
-                    ),
-                  );
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🎉 Saved to Passport!')));
-                  setState(() {}); 
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          )
+              );
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🎉 Saved to Passport!')));
+              setState(() {}); 
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -316,23 +312,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ValueListenableBuilder<List<TourismEvent>>(
-                      valueListenable: _planRepo.savedEvents,
-                      builder: (_, saved, _) {
-                        final inPlan = _planRepo.isEventInPlan(widget.event.id);
-                        return ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE07A5F),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 0,
-                          ),
-                          icon: Icon(inPlan ? Icons.bookmark : Icons.bookmark_border, size: 20),
-                          label: Text(inPlan ? 'Saved' : 'Add to Plan', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-                          onPressed: () => _planRepo.togglePlan(widget.event),
-                        );
-                      },
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE07A5F),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      icon: Icon(_isInPlan ? Icons.bookmark : Icons.bookmark_border, size: 20),
+                      label: Text(_isInPlan ? 'Saved' : 'Add to Plan', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                      onPressed: () => setState(() => _isInPlan = !_isInPlan),
                     ),
                   ),
                 ],
