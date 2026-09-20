@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/mock_events.dart';
+import '../data/plan_repository.dart';
 import '../data/passport_repository.dart';
 import '../models/tourism_event.dart';
 import 'event_detail_screen.dart';
@@ -20,14 +20,22 @@ class MyPlanScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // 确保全局印花置于最底层
           Positioned.fill(child: CustomPaint(painter: _PatternPainter())),
           
           ValueListenableBuilder<List<TourismEvent>>(
             valueListenable: planRepo.savedEvents,
             builder: (context, saved, _) {
               if (saved.isEmpty) {
-                return const Center(child: Text('No plans yet. Bookmark events to start!', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)));
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32.0),
+                    child: Text(
+                      'No plans yet. Bookmark events to start!', 
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                );
               }
 
               final totalCost = saved.fold(0.0, (sum, ev) => sum + ev.priceInMyr);
@@ -42,14 +50,17 @@ class MyPlanScreen extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Planned Events', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 4),
-                            Text('${saved.length} Experiences Saved', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Planned Events', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Text('${saved.length} Experiences Saved', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
@@ -69,7 +80,6 @@ class MyPlanScreen extends StatelessWidget {
                       final isCheckedIn = PassportRepository.instance.isCheckedIn(ev.id);
                       final isLast = idx == saved.length - 1;
                       
-                      // 时间轴圆点颜色严格跟随状态 (已打卡=黄色，未打卡=绿色)
                       final dotColor = isCheckedIn ? const Color(0xFFF2CC8F) : const Color(0xFF81B29A);
 
                       return IntrinsicHeight(
@@ -91,6 +101,7 @@ class MyPlanScreen extends StatelessWidget {
                                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: ev))),
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 20),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.85),
                                     borderRadius: BorderRadius.circular(16),
@@ -98,53 +109,50 @@ class MyPlanScreen extends StatelessWidget {
                                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
                                   ),
                                   child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       ClipRRect(
-                                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
-                                        child: Image.network(ev.imageUrl, width: 90, height: 90, fit: BoxFit.cover),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Image.network(ev.imageUrl, width: 80, height: 80, fit: BoxFit.cover),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 14),
                                       Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                '${ev.startDate?.day ?? 20}/${ev.startDate?.month ?? 9}/2026 • ${ev.openingTime ?? "09:30 AM"}',
-                                                style: const TextStyle(fontSize: 10, color: Color(0xFFE07A5F), fontWeight: FontWeight.w900),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(ev.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF3D405B))),
-                                              const SizedBox(height: 4),
-                                              Text('${ev.address}, ${ev.state}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                                              const SizedBox(height: 6),
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Icon(isCheckedIn ? Icons.check_circle : Icons.camera_alt, size: 14, color: isCheckedIn ? const Color(0xFFD4AC0D) : const Color(0xFF81B29A)),
-                                                      const SizedBox(width: 4),
-                                                      Text(isCheckedIn ? 'Visited' : 'Check-in', style: TextStyle(color: isCheckedIn ? const Color(0xFFD4AC0D) : const Color(0xFF81B29A), fontSize: 11, fontWeight: FontWeight.bold)),
-                                                    ],
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '${ev.startDate?.day ?? 20}/${ev.startDate?.month ?? 9}/2026 • ${ev.openingTime ?? "09:30 AM"}',
+                                              style: const TextStyle(fontSize: 10, color: Color(0xFFE07A5F), fontWeight: FontWeight.w900),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(ev.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF3D405B))),
+                                            const SizedBox(height: 4),
+                                            Text('${ev.address}, ${ev.state}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Icon(isCheckedIn ? Icons.check_circle : Icons.camera_alt, size: 14, color: isCheckedIn ? const Color(0xFFD4AC0D) : const Color(0xFF81B29A)),
+                                                    const SizedBox(width: 4),
+                                                    Text(isCheckedIn ? 'Visited' : 'Check-in', style: TextStyle(color: isCheckedIn ? const Color(0xFFD4AC0D) : const Color(0xFF81B29A), fontSize: 11, fontWeight: FontWeight.bold)),
+                                                  ],
+                                                ),
+                                                GestureDetector(
+                                                  onTap: () => planRepo.togglePlan(ev),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(4),
+                                                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.red.shade200)),
+                                                    child: const Icon(Icons.remove, size: 12, color: Colors.red),
                                                   ),
-                                                  GestureDetector(
-                                                    onTap: () => planRepo.togglePlan(ev),
-                                                    child: Container(
-                                                      padding: const EdgeInsets.all(4),
-                                                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.red.shade200)),
-                                                      child: const Icon(Icons.remove, size: 12, color: Colors.red),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
                                     ],
                                   ),
                                 ),

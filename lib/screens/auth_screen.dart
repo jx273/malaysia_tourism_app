@@ -134,7 +134,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 height: 52,
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFE07A5F), // 彻底告别深绿色
+                                    backgroundColor: const Color(0xFFE07A5F), 
                                     foregroundColor: Colors.white,
                                     shadowColor: const Color(0xFFE07A5F).withValues(alpha: 0.5),
                                     elevation: 8,
@@ -187,7 +187,7 @@ class _AuthScreenState extends State<AuthScreen> {
         obscureText: isPassword && _obscureText,
         style: const TextStyle(fontSize: 14, color: Color(0xFF3D405B), fontWeight: FontWeight.w700),
         decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: const Color(0xFF81B29A), size: 20), // 用薄荷绿代替原有的深绿
+          prefixIcon: Icon(icon, color: const Color(0xFF81B29A), size: 20), 
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(_obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey.shade400, size: 20),

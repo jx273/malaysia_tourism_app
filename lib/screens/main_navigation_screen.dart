@@ -65,7 +65,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(
-                // 1. 去掉固定高度，改用纵向 Padding 自然撑开
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.75), // 苹果风磨砂半透明
@@ -81,7 +80,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   unselectedItemColor: const Color(0xFF3D405B).withValues(alpha: 0.4),
                   showSelectedLabels: false,
                   showUnselectedLabels: false,
-                  // 2. 将图标尺寸从默认的 24 统一设定，避免撑破容器
                   iconSize: 26, 
                   items: [
                     _navItem(Icons.home_filled, Icons.home_outlined),

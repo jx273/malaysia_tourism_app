@@ -2,12 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
-import '../data/mock_events.dart';     // 补上 PlanRepository 引用
+import '../data/plan_repository.dart';
 import '../data/passport_repository.dart';
 import '../data/user_settings.dart';
 import '../models/tourism_event.dart';
 import '../widgets/mascot_chat_sheet.dart';
-import '../widgets/pixel_mascot.dart'; // 补上吉祥物引用
+import '../widgets/pixel_mascot.dart'; 
 import 'dart:math';
 
 class EventDetailScreen extends StatefulWidget {
@@ -22,7 +22,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   final PlanRepository _planRepo = PlanRepository.instance;
   final ImagePicker _picker = ImagePicker();
 
-  // 截取静止的吉祥物帧作为贴纸
   Widget _staticMascotSticker(MascotType type) {
     final assetPath = type == MascotType.tapir ? 'assets/images/tapir_sheet.png' : 'assets/images/tiger_sheet.png';
     const scale = 50.0 / 64.0;
@@ -77,7 +76,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 经典手账明信片本体（所有元素都在白色卡片内）
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -98,7 +96,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ? Image.network(finalPhotoPath, fit: BoxFit.cover)
                                 : Image.file(File(finalPhotoPath), fit: BoxFit.cover),
                           ),
-                          // 右上角：橙色精确时间
                           Positioned(
                             top: 12, right: 12,
                             child: Text(
@@ -106,7 +103,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 10, fontWeight: FontWeight.w900, shadows: [Shadow(color: Colors.white, blurRadius: 3)]),
                             ),
                           ),
-                          // 照片内部左下角：静止吉祥物，留出边缘间隙
                           Positioned(
                             bottom: 12, left: 12,
                             child: ValueListenableBuilder<MascotType>(
@@ -118,7 +114,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // 居中放大的标题
                     Text(
                       widget.event.title, 
                       textAlign: TextAlign.center, 
@@ -127,11 +122,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF3D405B))
                     ),
                     const SizedBox(height: 12),
-                    // 输入框完全置于白色明信片内部
                     TextField(
                       controller: noteController,
                       maxLines: 2,
-                      textAlign: TextAlign.center, // 文字居中
+                      textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: Color(0xFFE07A5F), fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
                         hintText: 'Edit your memory note...',
@@ -219,7 +213,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 child: Transform.translate(
                   offset: const Offset(0, -24), 
                   child: Container(
-                    // 修复缝隙：将 top padding 从 24 加大到 36，拉开安全距离
                     padding: const EdgeInsets.fromLTRB(20, 36, 20, 100),
                     decoration: const BoxDecoration(
                       color: Color(0xFFF4F1DE), 
@@ -276,7 +269,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             ],
           ),
 
-          // 详情页小老虎（彻底不走动，只呼吸待机）
           Positioned(
             right: 16,
             bottom: 100, 
@@ -295,14 +287,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 builder: (_, mascot, _) => Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE07A5F), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)]),
-                  // 这里用 idleFront 取代 happy，它不会手舞足蹈，非常安静
                   child: PixelMascot(type: mascot, action: MascotAction.idleFront, size: 40),
                 ),
               ),
             ),
           ),
 
-          // 底部 50/50 均分操作区 (完美贴合你的颜色要求)
           Positioned(
             left: 0, right: 0, bottom: 0,
             child: Container(
@@ -310,7 +300,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, -5))]),
               child: Row(
                 children: [
-                  // 左边：Check-in 绿 / Snap Again 黄
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -326,7 +315,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // 右边：永远红色的收藏键，大小完全对等
                   Expanded(
                     child: ValueListenableBuilder<List<TourismEvent>>(
                       valueListenable: _planRepo.savedEvents,
@@ -334,7 +322,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         final inPlan = _planRepo.isEventInPlan(widget.event.id);
                         return ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE07A5F), // 红色
+                            backgroundColor: const Color(0xFFE07A5F),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

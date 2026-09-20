@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../data/user_settings.dart';
+import '../data/mock_events.dart';
 import '../models/tourism_event.dart';
 import '../widgets/mascot_chat_sheet.dart';
 import '../widgets/walking_mascot.dart';
@@ -29,44 +30,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCat = 'All';
   String _searchQuery = '';
 
-  // Teh Tarik 专属撞色体系
   final List<Color> _cardColors = const [
-    Color(0xFF81B29A), // 复古薄荷绿
-    Color(0xFFF2CC8F), // 奶茶焦糖黄
-    Color(0xFFE07A5F), // 潮流珊瑚红
-    Color(0xFF3D405B), // 经典深靛蓝
+    Color(0xFF81B29A), 
+    Color(0xFFF2CC8F), 
+    Color(0xFFE07A5F), 
+    Color(0xFF3D405B), 
   ];
-
-  // ================= 新增：对接后端的变量和初始化 =================
-  List<TourismEvent> _allEvents = []; 
-  bool _isLoading = true;             
-  String _errorMessage = '';          
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchDataFromBackend(); // 页面一打开就去拿真数据
-  }
-
-  Future<void> _fetchDataFromBackend() async {
-    try {
-      final events = await ApiService.fetchEvents();
-      if (mounted) {
-        setState(() {
-          _allEvents = events;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
-  }
-  // ==========================================================
 
   @override
   void dispose() {
@@ -102,48 +71,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openMascotChat() async {
-    print('正在向后端发送 AI 推荐请求...');
+    debugPrint('Requesting AI recommendations from backend...');
     
-    // 临时测试调用
     final results = await ApiService.getAiRecommendations(
       lat: 1.45, 
       lng: 103.76, 
       interests: ['Culture', 'Nature']
     );
     
-    print('拿到的 AI 推荐结果是: $results');
+    debugPrint('Received AI recommendations: $results');
 
-    // 下面原本弹窗的代码保留
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.3), 
-      builder: (_) => const MascotChatSheet(),
-    );
+    if (mounted) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.3), 
+        builder: (_) => const MascotChatSheet(),
+      );
+    }
   }
-
 
   @override
   Widget build(BuildContext context) {
-    // 如果正在加载，显示一个加载圈圈，防止白屏报错
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF4F1DE),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFE07A5F))),
-      );
-    }
-
-    // 如果报错了，显示错误信息
-    if (_errorMessage.isNotEmpty) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF4F1DE),
-        body: Center(child: Text('Oops! $_errorMessage', style: const TextStyle(color: Colors.red))),
-      );
-    }
-
-    // 这里把原本的 allEvents 改成了 _allEvents
-    final filteredAllEvents = _allEvents.where((e) {
+    final filteredAllEvents = MockEventRepository.events.where((e) {
       final matchesCat = _selectedCat == 'All' || e.category.toLowerCase() == _selectedCat.toLowerCase();
       final q = _searchQuery.trim().toLowerCase();
       final matchesSearch = q.isEmpty ||
@@ -157,9 +108,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: CustomPaint(
-        painter: _PatternPainter(), // 加上浅色全局印花
+        painter: _PatternPainter(), 
         child: Stack(
-           // ... 里面保留你原来的 ListView 内容 ...
         children: [
           SafeArea(
             bottom: false,
@@ -167,7 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 140),
               children: [
-                // 1. 顶部元气问候
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
                   child: Column(
@@ -201,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // 2. 真实生效的毛玻璃搜索栏
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
@@ -241,7 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // 3. 分类胶囊选择栏 (Category Pills)
                 SizedBox(
                   height: 38,
                   child: ListView.builder(
@@ -260,13 +207,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: Text(
                             cat,
                             style: TextStyle(
-                              // 被选中是白字，未选中是橙色字
                               color: isSel ? Colors.white : const Color(0xFFE07A5F),
                               fontWeight: FontWeight.w800,
                               fontSize: 12,
                             ),
                           ),
-                          // 被选中是橙色背景，未选中是带透明的白底
                           backgroundColor: isSel ? const Color(0xFFE07A5F) : Colors.white.withValues(alpha: 0.65),
                           side: BorderSide.none,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -278,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 4. Section 1：横向滑动的“所在州属特色卡片”
                 ValueListenableBuilder<String>(
                   valueListenable: UserSettings.instance.selectedState,
                   builder: (context, state, _) {
@@ -333,7 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                // 5. Section 2：所有活动的大列表 (完整的纵向 Event List)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -382,7 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // 悬浮巡逻吉祥物
           WalkingMascot(
             onTap: _openMascotChat,
           ),
@@ -392,8 +334,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 横滑大立式卡片
-  // 横滑大立式卡片
   Widget _squarePosterCard(TourismEvent ev, Color accentColor) {
     return GestureDetector(
       onTap: () => _openEventDetail(ev),
@@ -401,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 235,
         margin: const EdgeInsets.only(right: 16, bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.transparent, // 设为透明避免底层纯白颜色干扰毛玻璃
+          color: Colors.transparent, 
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -414,7 +354,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 上半部海报
             Expanded(
               flex: 11,
               child: ClipRRect(
@@ -460,7 +399,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // 下半部信息（高斯模糊毛玻璃质感）
             Expanded(
               flex: 9,
               child: ClipRRect(
@@ -470,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.65), // 半透明白底营造玻璃感
+                      color: Colors.white.withValues(alpha: 0.65), 
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +474,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 纵向列表行项 (展示所有存在的 Event)
   Widget _verticalEventRowItem(TourismEvent ev, Color cardColor) {
     return GestureDetector(
       onTap: () => _openEventDetail(ev),
@@ -544,7 +481,6 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          // 还原：整个卡片背景变成传入的撞色 (薄荷绿、焦糖黄等)
           color: cardColor, 
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
@@ -557,7 +493,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            // 缩略图
             Stack(
               children: [
                 ClipRRect(
@@ -573,7 +508,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 14),
 
-            // 详情
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -582,7 +516,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ev.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    // 标题文字改成深色，适应彩色背景
                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF3D405B)),
                   ),
                   const SizedBox(height: 4),
@@ -628,7 +561,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 缺省状态卡片
   Widget _emptyStateCard(String state) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -658,7 +590,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// 极简淡色波点印花画笔
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

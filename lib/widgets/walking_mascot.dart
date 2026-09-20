@@ -118,7 +118,6 @@ class _WalkingMascotState extends State<WalkingMascot> {
             onPanStart: (_) => setState(() => _isDragging = true),
             onPanUpdate: (details) {
               setState(() {
-                // 修复：全向自由拖动 (X 和 Y 同时响应增量)
                 _x = (_x + details.delta.dx).clamp(10.0, screenW - 70.0);
                 _y = (_y - details.delta.dy).clamp(80.0, screenH - 150.0);
               });
