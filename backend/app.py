@@ -3,7 +3,88 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
+TRAINING_YEARS = (2017, 2018, 2019, 2023)
+HOLDOUT_YEARS = (2024, 2025)
+NEUTRAL_GAP_LIMIT = 5.0
 
+FEATURE_REQUIRED_COLUMNS = {
+    "state",
+    "year",
+    "visitors_000",
+    "log_gdp_per_capita",
+    "rooms_per_1k_residents",
+}
+
+ML_REQUIRED_COLUMNS = {
+    "state",
+    "year",
+    "visitors_000",
+    "expected_visitors_000",
+    "actual_share_pct",
+    "expected_share_pct",
+    "opportunity_gap_pp",
+    "opportunity_gap_pct",
+    "is_holdout_year",
+}
+
+
+def validate_columns(dataframe, required_columns, dataset_name):
+    missing_columns = required_columns.difference(dataframe.columns)
+
+    if missing_columns:
+        missing_text = ", ".join(sorted(missing_columns))
+        raise ValueError(
+            f"{dataset_name} is missing required columns: {missing_text}"
+        )
+
+
+def validate_unique_state_year(dataframe, dataset_name):
+    duplicate_rows = dataframe.duplicated(
+        subset=["state", "year"],
+        keep=False,
+    )
+
+    if duplicate_rows.any():
+        duplicate_keys = (
+            dataframe.loc[duplicate_rows, ["state", "year"]]
+            .drop_duplicates()
+            .sort_values(["year", "state"])
+            .to_dict("records")
+        )
+        raise ValueError(
+            f"{dataset_name} contains duplicate state-year rows: "
+            f"{duplicate_keys}"
+        )
+
+
+def classify_opportunity_gap(gap_value):
+    if pd.isna(gap_value):
+        return {
+            "label": "Data unavailable",
+            "category": "unavailable",
+            "delta_color": "off",
+        }
+
+    if gap_value > NEUTRAL_GAP_LIMIT:
+        return {
+            "label": "Positive relative opportunity gap",
+            "category": "positive_gap",
+            "delta_color": "normal",
+        }
+
+    if gap_value < -NEUTRAL_GAP_LIMIT:
+        return {
+            "label": "Above model-expected share",
+            "category": "above_expected",
+            "delta_color": "inverse",
+        }
+
+    return {
+        "label": "Close to model expectation",
+        "category": "neutral",
+        "delta_color": "off",
+    }
+    
 # --- 1. Page Configuration ---
 st.set_page_config(
     page_title="LestariLens Intelligence",
@@ -58,23 +139,112 @@ st.markdown("""
 # --- 3. Data Loading (Dynamic Relative Paths) ---
 @st.cache_data
 def load_data():
-    try:
-        # Dynamically resolve project root regardless of where the script is run from
-        project_root = Path(__file__).resolve().parents[1]
-        
-        features_path = project_root / "ml" / "handoff" / "for_hongyik" / "state_features.csv"
-        ml_path = project_root / "ml" / "handoff" / "for_hongyik" / "sample_predictions.csv"
-        
-        df = pd.read_csv(features_path)
-        df['visitors_M'] = df['visitors_000'] / 1000
-        
-        df_ml = pd.read_csv(ml_path)
-        return df, df_ml
-    except Exception as e:
-        st.error(f"Critical Error: Could not load data files. Ensure 'state_features.csv' and 'sample_predictions.csv' exist in 'ml/handoff/for_hongyik/'.\n\nError details: {e}")
-        st.stop()
+    project_root = Path(__file__).resolve().parents[1]
 
-df, df_ml = load_data()
+    features_path = (
+        project_root
+        / "ml"
+        / "handoff"
+        / "for_hongyik"
+        / "state_features.csv"
+    )
+    predictions_path = (
+        project_root
+        / "ml"
+        / "handoff"
+        / "for_hongyik"
+        / "sample_predictions.csv"
+    )
+
+    if not features_path.exists():
+        raise FileNotFoundError(
+            f"State features file was not found: {features_path}"
+        )
+
+    if not predictions_path.exists():
+        raise FileNotFoundError(
+            f"Prediction file was not found: {predictions_path}"
+        )
+
+    features = pd.read_csv(features_path)
+    predictions = pd.read_csv(predictions_path)
+
+    validate_columns(
+        features,
+        FEATURE_REQUIRED_COLUMNS,
+        "state_features.csv",
+    )
+    validate_columns(
+        predictions,
+        ML_REQUIRED_COLUMNS,
+        "sample_predictions.csv",
+    )
+
+    features["year"] = pd.to_numeric(
+        features["year"],
+        errors="raise",
+    ).astype(int)
+    predictions["year"] = pd.to_numeric(
+        predictions["year"],
+        errors="raise",
+    ).astype(int)
+
+    validate_unique_state_year(
+        features,
+        "state_features.csv",
+    )
+    validate_unique_state_year(
+        predictions,
+        "sample_predictions.csv",
+    )
+
+    feature_keys = set(
+        features[["state", "year"]].itertuples(
+            index=False,
+            name=None,
+        )
+    )
+    prediction_keys = set(
+        predictions[["state", "year"]].itertuples(
+            index=False,
+            name=None,
+        )
+    )
+
+    if feature_keys != prediction_keys:
+        missing_predictions = sorted(feature_keys - prediction_keys)
+        missing_features = sorted(prediction_keys - feature_keys)
+
+        raise ValueError(
+            "The feature and prediction datasets do not contain the same "
+            f"state-year keys. Missing predictions: {missing_predictions}. "
+            f"Missing features: {missing_features}."
+        )
+
+    features["visitors_M"] = features["visitors_000"] / 1000
+
+    available_years = set(features["year"].unique())
+    expected_years = set(TRAINING_YEARS + HOLDOUT_YEARS)
+
+    if available_years != expected_years:
+        raise ValueError(
+            "Unexpected analytical years. "
+            f"Expected {sorted(expected_years)}, "
+            f"received {sorted(available_years)}."
+        )
+
+    return features, predictions
+
+
+try:
+    df, df_ml = load_data()
+except Exception as error:
+    st.error(
+        "The dashboard could not validate its analytical data. "
+        "Check the files in ml/handoff/for_hongyik/."
+    )
+    st.exception(error)
+    st.stop()
 
 
 # --- 4. Sidebar Navigation & Global Filters ---
@@ -171,11 +341,16 @@ def render_overview():
     with k1.container(border=True): st.metric(f"Domestic visitors ({selected_year})", f"{v_current:.1f}M", delta_label)
     with k2.container(border=True): st.metric("Tourism expenditure (2025 Est.)", "RM121.3B", "↑ 13.6% vs baseline")
     with k3.container(border=True): st.metric("Domestic trips (2025 Est.)", "332.2M", "1.15 trips per visitor", delta_color="off")
-    with k4.container(border=True): 
-        if top_ml_gap > 0:
-            st.metric(f"ML Opportunity ({top_ml_state})", f"+{top_ml_gap:.1f}%", f"Untapped ({selected_year})", delta_color="normal")
-        else:
-            st.metric(f"ML Opportunity ({top_ml_state})", f"{top_ml_gap:.1f}%", f"Over-indexed ({selected_year})", delta_color="inverse")
+    with k4.container(border=True):
+        gap_status = classify_opportunity_gap(top_ml_gap)
+        gap_prefix = "+" if top_ml_gap > 0 else ""
+
+        st.metric(
+            label=f"Relative Gap ({top_ml_state})",
+            value=f"{gap_prefix}{top_ml_gap:.1f}%",
+            delta=f"{gap_status['label']} ({selected_year})",
+            delta_color=gap_status["delta_color"],
+        )
 
     st.markdown("<br>", unsafe_allow_html=True)
     mid_col1, mid_col2 = st.columns([2.3, 1])
@@ -283,21 +458,145 @@ def render_overview():
 # PAGE 2: VISITOR FLOWS
 # ==========================================
 def render_visitor_flows():
-    st.markdown(f'<p class="sub-header">ANALYTICS · HISTORICAL TRENDS ({selected_year})</p>', unsafe_allow_html=True)
-    st.header("Visitor Flows & Growth Trajectories")
-    st.markdown("Track the movement and long-term growth of domestic visitors across all states up to the selected year.")
-    
-    df_trend = df[df['year'] <= selected_year].groupby(['year', 'state'])['visitors_M'].sum().reset_index()
-    
-    top_3 = df[df['year'] == selected_year].sort_values('visitors_M', ascending=False).head(3)['state'].tolist()
-    df_trend['Highlight'] = df_trend['state'].apply(lambda x: x if x in top_3 else 'Other States')
-    
-    fig_line = px.line(df_trend, x="year", y="visitors_M", color="Highlight", line_group="state", hover_name="state",
-                       color_discrete_map={'Selangor': '#E27D60', 'W.P. Kuala Lumpur': '#85A88F', 'Perak': '#E8B87B', 'Other States': '#DEDAD0'})
-    
-    fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=500,
-                           xaxis=dict(showgrid=False, title="Year"), yaxis=dict(showgrid=True, gridcolor='#E5E2D9', title="Visitors (Millions)"))
-    st.plotly_chart(fig_line, use_container_width=True)
+    st.markdown(
+        (
+            f'<p class="sub-header">'
+            f'ANALYTICS · HISTORICAL TRENDS ({selected_year})'
+            f'</p>'
+        ),
+        unsafe_allow_html=True,
+    )
+    st.header("Visitor Trends & Growth Trajectories")
+    st.markdown(
+        "Compare domestic visitor trajectories across states using the "
+        "available DOSM observation years."
+    )
+
+    observed_data = (
+        df[df["year"] <= selected_year]
+        .groupby(["year", "state"], as_index=False)["visitors_M"]
+        .sum()
+    )
+
+    selected_year_data = df[df["year"] == selected_year]
+    top_states = (
+        selected_year_data
+        .sort_values("visitors_M", ascending=False)
+        .head(3)["state"]
+        .tolist()
+    )
+
+    if observed_data.empty:
+        st.warning(
+            "No visitor trend data is available for the selected year."
+        )
+        return
+
+    first_year = int(observed_data["year"].min())
+    display_years = list(range(first_year, selected_year + 1))
+    states = sorted(observed_data["state"].unique())
+
+    complete_index = pd.MultiIndex.from_product(
+        [display_years, states],
+        names=["year", "state"],
+    ).to_frame(index=False)
+
+    trend_data = complete_index.merge(
+        observed_data,
+        on=["year", "state"],
+        how="left",
+    )
+
+    trend_data["Highlight"] = trend_data["state"].apply(
+        lambda state: state if state in top_states else "Other States"
+    )
+
+    highlight_colors = [
+        "#E27D60",
+        "#85A88F",
+        "#E8B87B",
+    ]
+    color_map = {
+        state: color
+        for state, color in zip(top_states, highlight_colors)
+    }
+    color_map["Other States"] = "#DEDAD0"
+
+    figure = px.line(
+        trend_data,
+        x="year",
+        y="visitors_M",
+        color="Highlight",
+        line_group="state",
+        hover_name="state",
+        markers=True,
+        color_discrete_map=color_map,
+        labels={
+            "year": "Year",
+            "visitors_M": "Visitors (Millions)",
+            "Highlight": "Highlighted states",
+        },
+    )
+
+    figure.update_traces(connectgaps=False)
+
+    if selected_year >= 2023:
+        figure.add_vrect(
+            x0=2019.5,
+            x1=2022.5,
+            fillcolor="#F3EFE7",
+            opacity=0.65,
+            line_width=0,
+            layer="below",
+        )
+        figure.add_annotation(
+            x=2021,
+            y=1.04,
+            xref="x",
+            yref="paper",
+            text="2020–2022 not included in the analytical dataset",
+            showarrow=False,
+            font={
+                "size": 11,
+                "color": "#6B7280",
+            },
+        )
+
+    figure.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=540,
+        margin={
+            "l": 20,
+            "r": 20,
+            "t": 65,
+            "b": 20,
+        },
+        xaxis={
+            "showgrid": False,
+            "title": "Year",
+            "tickmode": "linear",
+            "dtick": 1,
+        },
+        yaxis={
+            "showgrid": True,
+            "gridcolor": "#E5E2D9",
+            "title": "Visitors (Millions)",
+        },
+        legend_title_text="Highlighted states",
+        hovermode="closest",
+    )
+
+    st.plotly_chart(
+        figure,
+        use_container_width=True,
+    )
+
+    st.caption(
+        "Observed years: 2017–2019 and 2023–2025. "
+        "The line is intentionally interrupted for 2020–2022 because those "
+        "years are not part of the analytical dataset."
+    )
 
 
 # ==========================================
@@ -368,18 +667,39 @@ def render_evidence():
     st.markdown("Direct access to the underlying DOSM dataset, ML Predictions, and project limitations.")
     
     # Critical Model Limitations section requested in Code Review
-    with st.expander("⚠️ ML Methodology & Limitations", expanded=True):
-        st.markdown("""
-        - **Training vs Holdout:** Data from **2017-2023** was utilized for model training. **2024-2025** serves as an untouched holdout dataset to evaluate structural baselines.
-        - **Opportunity Gap Interpretation:** The gap represents a structural benchmark comparing actual visitor share against economic and infrastructure fundamentals. It is **not** a direct future forecast. A positive gap indicates untapped potential but does not definitively prove a lack of marketing exposure alone.
-        - **Data Constraints:** Metrics for **Perlis** and **W.P. Putrajaya** possess lower predictive reliability due to naturally smaller sample sizes and outlier density within DOSM records.
-        """)
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Records", len(df))
-    col2.metric("Total States", df['state'].nunique())
-    col3.metric("Year Range", f"{df['year'].min()} - {df['year'].max()}")
+    with st.expander(
+        "ML Methodology & Limitations",
+        expanded=True,
+    ):
+        st.markdown(
+            """
+            - **Training years:** 2017, 2018, 2019 and 2023.
+            - **Untouched holdout years:** 2024 and 2025.
+            - **Model:** Gradient Boosting structural expected-demand model.
+            - **Headline metric:** The Tourism Opportunity Gap compares a state's
+            actual share of national visitors with its model-expected share for
+            the same year.
+            - **Interpretation threshold:** Values between -5% and +5% are treated
+            as close to the model expectation and are not promoted as a
+            meaningful opportunity finding.
+            - **Not a forecast:** The expected value is a structural benchmark,
+            not a prediction of future visitor volume.
+            - **No causal claim:** The result does not prove that marketing,
+            discoverability, transport or any single factor caused the gap.
+            - **Reliability warning:** Results for Perlis and W.P. Putrajaya
+            require additional caution because their holdout errors are higher
+            than the median state.
+            """
+        )
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Records", len(df))
+        col2.metric("Total States", df['state'].nunique())
+        col3.metric(
+            "Observed Years",
+            "2017–2019, 2023–2025",
+        )
     
     st.subheader("Historical Data (DOSM)")
     st.dataframe(df, use_container_width=True, height=300)
