@@ -28,14 +28,23 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     0,    0,    0,    1, 0,  
   ]);
 
-@override
+  final EdgeInsets _mapFitPadding = const EdgeInsets.only(left: 50.0, right: 50.0, top: 160.0, bottom: 220.0);
+
+  @override
   void dispose() {
     _mapController.dispose();
     super.dispose();
   }
 
+  LatLngBounds? _getEventBounds() {
+    final events = MockEventRepository.events;
+    if (events.isEmpty) return null;
+    
+    final points = events.map((e) => LatLng(e.latitude, e.longitude)).toList();
+    return LatLngBounds.fromPoints(points);
+  }
+
   void _animatedMapMove(LatLng destLocation, double destZoom) {
-    // 1. Create a separate controller for each flight to prevent animation listeners from stacking and conflicting
     final controller = AnimationController(
       vsync: this, 
       duration: const Duration(milliseconds: 600)
@@ -54,7 +63,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       );
     });
 
-    // 2. Automatically dispose of itself when the animation ends to free up memory and notify the underlying map to load the final view tiles
     animation.addStatusListener((status) {
       if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
         controller.dispose();
@@ -79,7 +87,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final currentZoom = _mapController.camera.zoom;
     if (currentZoom <= 5.0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You are viewing the whole Malaysia map! 🗺️🐯'), duration: Duration(seconds: 1)),
+        const SnackBar(content: Text('Reached minimum zoom! 🗺️'), duration: Duration(seconds: 1)),
       );
       return;
     }
@@ -89,6 +97,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final events = MockEventRepository.events;
+    final bounds = _getEventBounds();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F1DE),
@@ -100,8 +109,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: _malaysiaCenter,
-                initialZoom: _defaultZoom,
+                initialCameraFit: bounds != null 
+                    ? CameraFit.bounds(bounds: bounds, padding: _mapFitPadding, maxZoom: 10.0)
+                    : null,
+                initialCenter: bounds == null ? _malaysiaCenter : const LatLng(0, 0),
+                initialZoom: bounds == null ? _defaultZoom : 0,
                 minZoom: 4.5,
                 maxZoom: 18,
                 onTap: (_, _) => setState(() => _selectedEvent = null),
@@ -118,8 +130,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
                     return Marker(
                       point: eventLocation,
-                      width: 75, 
-                      height: 75,
+                      width: 50, 
+                      height: 50,
                       child: Center(
                         child: GestureDetector(
                           behavior: HitTestBehavior.deferToChild,
@@ -127,43 +139,27 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                             setState(() => _selectedEvent = ev);
                             _animatedMapMove(eventLocation, 13.0); 
                           },
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AnimatedScale(
-                                scale: isSel ? 1.35 : 1.0,
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.elasticOut,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: isSel ? const Color(0xFFE07A5F) : Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: isSel ? Colors.white : const Color(0xFF81B29A), width: 2.0),
-                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
-                                  ),
-                                  child: ValueListenableBuilder<MascotType>(
-                                    valueListenable: UserSettings.instance.selectedMascot,
-                                    builder: (_, mascotType, _) => PixelMascot(
-                                      type: mascotType,
-                                      action: isSel ? MascotAction.happy : MascotAction.idleFront,
-                                      size: 28, 
-                                    ),
-                                  ),
+                          child: AnimatedScale(
+                            scale: isSel ? 1.35 : 1.0,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.elasticOut,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: isSel ? const Color(0xFFE07A5F) : Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: isSel ? Colors.white : const Color(0xFF81B29A), width: 2.0),
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
+                              ),
+                              child: ValueListenableBuilder<MascotType>(
+                                valueListenable: UserSettings.instance.selectedMascot,
+                                builder: (_, mascotType, _) => PixelMascot(
+                                  type: mascotType,
+                                  action: isSel ? MascotAction.happy : MascotAction.idleFront,
+                                  size: 28, 
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              if (isSel)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF3D405B), 
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
-                                  ),
-                                  child: Text(ev.title.split(' ').first, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                )
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -209,34 +205,34 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                         const SizedBox(width: 10),
                         const Text('Discovery Map', style: TextStyle(color: Color(0xFF3D405B), fontWeight: FontWeight.w900, fontSize: 20)),
                         const Spacer(),
-                        // Right top corner: one-click back to the whole Malaysia map
                         Material(
                           color: Colors.white,
                           shape: const CircleBorder(),
                           elevation: 0,
                           child: IconButton(
-                            icon: const Icon(Icons.my_location, color: Color(0xFF3D405B), size: 22),
+                            icon: const Icon(Icons.zoom_out_map, color: Color(0xFF3D405B), size: 22),
                             onPressed: () {
-                              final currentZoom = _mapController.camera.zoom;
-                              if (currentZoom <= 5.5) {
+                              final currentBounds = _getEventBounds();
+                              setState(() => _selectedEvent = null);
+                              
+                              if (currentBounds != null) {
+                                final target = CameraFit.bounds(
+                                  bounds: currentBounds, 
+                                  padding: _mapFitPadding,
+                                  maxZoom: 10.0,
+                                ).fit(_mapController.camera);
+                                
+                                _animatedMapMove(target.center, target.zoom);
+                                
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('You are already viewing the whole Malaysia map! 🗺️'), 
+                                    content: Text('Viewing all events 🗺️'), 
                                     duration: Duration(seconds: 1),
                                   ),
                                 );
-                                return;
+                              } else {
+                                _animatedMapMove(_malaysiaCenter, _defaultZoom);
                               }
-
-                              setState(() => _selectedEvent = null);
-                              _animatedMapMove(_malaysiaCenter, _defaultZoom);
-                              
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Back to whole Malaysia view 🇲🇾'), 
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
                             },
                           ),
                         ),
