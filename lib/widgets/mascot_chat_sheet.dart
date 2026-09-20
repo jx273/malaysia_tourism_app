@@ -49,11 +49,10 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       if (apiKey == null) throw Exception('API Key not found in .env');
       
-      // 使用稳定低延迟的 Flash 模型
       final model = GenerativeModel(model: 'gemini-3.1-flash-lite', apiKey: apiKey);
 
       if (widget.currentEvent == null) {
-        // 判断用户是否只是在打招呼/日常闲聊
+        // To detect greetings, use a regex to match common greeting phrases.
         final isGreeting = RegExp(r'^(hi|hello|hey|how are you|你好|早安|午安)', caseSensitive: false).hasMatch(text.trim());
 
         String prompt;
@@ -66,7 +65,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
           Use 1 cute emoji.
           ''';
         } else {
-          // 用户寻求推荐，清理标签中的 emoji 字符
+          // Remove emojis and special characters to extract the main interest keyword
           String interest = text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
 
           final results = await ApiService.getAiRecommendations(
@@ -75,7 +74,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
             interests: [interest.isEmpty ? 'General' : interest],
           );
 
-          // 将后端拿到的全部候选地点整理成摘要文本
+          // Create a summary of candidates for the prompt
           String candidatesSummary = results.map((e) {
             return "- ${e['name']} (Match Score: ${((e['match_score'] ?? 0) * 100).toInt()}%)";
           }).join("\n");
@@ -102,7 +101,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
         });
 
       } else {
-        // 详情页逻辑：针对当前点击的 event 进行单点问答
+        // Detail page logic: single Q&A for the currently selected event
         final prompt = '''
         You are Ollie, a travel companion. The user is browsing "${widget.currentEvent!.title}".
         Location: ${widget.currentEvent!.address ?? 'Johor'}
@@ -141,7 +140,6 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         child: Column(
           children: [
-            // 顶层抓手
             Container(
               margin: const EdgeInsets.only(top: 10, bottom: 4),
               width: 40,
@@ -152,7 +150,6 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
               ),
             ),
 
-            // 头部毛玻璃卡片
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Row(
@@ -203,7 +200,6 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
             ),
             Divider(height: 1, color: const Color(0xFF3D405B).withValues(alpha: 0.1)),
 
-            // 快捷提问胶囊
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
@@ -218,7 +214,6 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
               ),
             ),
 
-            // 聊天消息列表
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
@@ -263,7 +258,6 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
               ),
             ),
 
-            // 底部输入区
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),

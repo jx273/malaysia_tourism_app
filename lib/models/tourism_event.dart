@@ -3,8 +3,8 @@ class TourismEvent {
   final String title;
   final String description;
   final String category;
-  final String address; // 完整地址
-  final String state;   // 州属
+  final String address; 
+  final String state;   
   final DateTime? startDate;
   final DateTime? endDate;
   final String? openingTime;
@@ -24,34 +24,50 @@ class TourismEvent {
   });
 
   factory TourismEvent.fromJson(Map<String, dynamic> json) {
-    double parsedPrice = 0.0;
-    if (json['price'] != null) {
-      final priceStr = json['price'].toString().replaceAll('RM', '').trim();
-      parsedPrice = double.tryParse(priceStr) ?? 0.0;
-    }
-    return TourismEvent(
-      id: json['event_id'] ?? 'evt_${json['id'] ?? '0'}',
-      title: json['name'] ?? 'Untitled Event',
-      description: json['description'] ?? '',
-      category: json['category'] ?? 'Heritage',
-      address: json['address'] ?? '',
-      state: _extractState(json['address'] ?? 'Johor'),
-      startDate: json['start_date'] != null && json['start_date'].toString().isNotEmpty ? DateTime.tryParse(json['start_date']) : null,
-      endDate: json['end_date'] != null && json['end_date'].toString().isNotEmpty ? DateTime.tryParse(json['end_date']) : null,
-      openingTime: json['opening_time'],
-      closingTime: json['closing_time'],
-      priceInMyr: parsedPrice,
-      imageUrl: (json['image_url'] != null && json['image_url'].toString().startsWith('http')) ? json['image_url'] : 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=800&q=80',
-      recommendationReason: json['recommendation_reason'] ?? '',
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 1.458,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 103.764,
-    );
-  }
+    String rawImageUrl = json['image_url'] ?? '';
 
-  static String _extractState(String address) {
-    // 简单的从地址中提取州属，兼容后端的 address 字段
-    if (address.toLowerCase().contains('penang') || address.toLowerCase().contains('pulau pinang')) return 'Pulau Pinang';
-    if (address.toLowerCase().contains('kuala lumpur')) return 'W.P. Kuala Lumpur';
-    return 'Johor';
+    String fallbackUrl = 'https://cdn.getyourguide.com/img/tour/1632e137c983caf9b17097bcaf70e24959f91f385acf4c836dab30c57997e2ad.png/68.jpg';
+
+    String safeImageUrl = rawImageUrl;
+    if (rawImageUrl.isNotEmpty && rawImageUrl.startsWith('http')) {
+      if (!rawImageUrl.contains('unsplash.com') && !rawImageUrl.contains('gstatic.com')) {
+        safeImageUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(rawImageUrl)}&default=${Uri.encodeComponent(fallbackUrl)}&output=jpg';
+      }
+    } else if (rawImageUrl.isEmpty) {
+      safeImageUrl = 'https://wsrv.nl/?url=${Uri.encodeComponent(fallbackUrl)}&output=jpg';
+    }
+
+    DateTime? parseDate(dynamic val) {
+      if (val == null) return null;
+      if (val is DateTime) return val;
+      if (val is String && val.trim().isNotEmpty) {
+        return DateTime.tryParse(val.trim());
+      }
+      return null;
+    }
+
+    return TourismEvent(
+      id: json['event_id'] ?? json['id'] ?? '',
+      title: json['name'] ?? json['title'] ?? '',
+      description: json['description'] ?? '',
+      category: json['category'] ?? '',
+      state: json['state'] ?? 'Johor',
+      address: json['address'] ?? '',
+      latitude: (json['latitude'] is num)
+          ? (json['latitude'] as num).toDouble()
+          : double.tryParse(json['latitude']?.toString() ?? '0') ?? 0.0,
+      longitude: (json['longitude'] is num)
+          ? (json['longitude'] as num).toDouble()
+          : double.tryParse(json['longitude']?.toString() ?? '0') ?? 0.0,
+      startDate: parseDate(json['start_date']),
+      endDate: parseDate(json['end_date']),
+      openingTime: json['opening_time'] ?? '',
+      closingTime: json['closing_time'] ?? '',
+      priceInMyr: (json['price'] is num)
+          ? (json['price'] as num).toDouble()
+          : double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+      imageUrl: safeImageUrl,
+      recommendationReason: json['recommendation_reason'] ?? '',
+    );
   }
 }

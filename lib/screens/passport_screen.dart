@@ -10,7 +10,7 @@ import '../widgets/pixel_mascot.dart';
 class PassportScreen extends StatelessWidget {
   const PassportScreen({super.key});
 
-  // 复用静态提取器：截取单帧静止的小动物
+  // Reuseable static extractor: extract a single frame of the mascot sprite sheet
   Widget _staticMascotSticker(MascotType type) {
     final assetPath = type == MascotType.tapir ? 'assets/images/tapir_sheet.png' : 'assets/images/tiger_sheet.png';
     const scale = 50.0 / 64.0;
@@ -27,7 +27,6 @@ class PassportScreen extends StatelessWidget {
     );
   }
 
-  // 点击小卡片后弹出的：经典放大版明信片 (只读查看与分享)
   void _showEnlargedPostcard(BuildContext context, PostcardMemory mem) {
     final timeString = TimeOfDay.fromDateTime(mem.checkInTime).format(context);
     final dateString = '${mem.checkInTime.day.toString().padLeft(2, '0')}/${mem.checkInTime.month.toString().padLeft(2, '0')}/${mem.checkInTime.year}';
@@ -168,7 +167,6 @@ class PassportScreen extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600), 
                 child: CustomScrollView(
-                  // 使用 CustomScrollView 方便我们在 Grid 底部加上横线和文字
                   physics: const BouncingScrollPhysics(),
                   slivers: [
                     SliverPadding(
@@ -235,7 +233,6 @@ class PassportScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // 底部横线与期待扩充字样
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 20, bottom: 120, left: 40, right: 40),
@@ -262,7 +259,6 @@ class PassportScreen extends StatelessWidget {
   }
 }
 
-// 极简淡色波点印花背景画笔
 class _PatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -270,7 +266,6 @@ class _PatternPainter extends CustomPainter {
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
-        // 交错排布圆点
         final offsetX = (y / spacing) % 2 == 0 ? x : x + spacing / 2;
         canvas.drawCircle(Offset(offsetX, y), 2, paint);
       }

@@ -60,7 +60,6 @@ class _PixelMascotState extends State<PixelMascot> {
   @override
   void didUpdateWidget(covariant PixelMascot oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 动作改变时重置帧，避免切动作闪烁
     if (oldWidget.action != widget.action) {
       _currentFrame = 0;
     }
@@ -92,7 +91,6 @@ class _PixelMascotState extends State<PixelMascot> {
             minHeight: 768.0 * scale,
             maxHeight: 768.0 * scale,
             child: Transform.translate(
-              // 精准偏移
               offset: Offset(
                 -_currentFrame * 64.0 * scale,
                 -widget.action.rowIndex * 64.0 * scale,

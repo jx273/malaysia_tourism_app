@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Color(0xFF81B29A), 
     Color(0xFFF2CC8F), 
     Color(0xFFE07A5F), 
-    Color(0xFF3D405B), 
   ];
 
   @override

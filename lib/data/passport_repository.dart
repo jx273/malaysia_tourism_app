@@ -22,7 +22,6 @@ class PassportRepository {
   PassportRepository._internal();
 
   final ValueNotifier<List<PostcardMemory>> memories = ValueNotifier<List<PostcardMemory>>([
-    // 默认提供一张已打卡回忆，方便评委直接看到照片墙效果
     PostcardMemory(
       id: 'mem_1',
       event: TourismEvent(

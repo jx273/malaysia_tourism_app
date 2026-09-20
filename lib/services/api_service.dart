@@ -4,17 +4,16 @@ import 'package:http/http.dart' as http;
 import '../models/tourism_event.dart';
 
 class ApiService {
-  // 安全的跨平台判断方式
   static String get baseUrl {
-    // 1. 如果在 Chrome 等网页运行
+    // 1. If running on web (e.g., Chrome), use localhost directly
     if (kIsWeb) {
       return 'http://127.0.0.1:8000';
     } 
-    // 2. 如果在 Android 模拟器运行
+    // 2. If running on Android emulator, use
     else if (defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:8000'; 
     } 
-    // 3. iOS 模拟器或 macOS 桌面端
+    // 3. If running on iOS simulator or macOS desktop, use localhost directly
     else {
       return 'http://127.0.0.1:8000'; 
     }
