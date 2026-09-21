@@ -1,3 +1,4 @@
+import base64
 import os
 from io import BytesIO
 from html import escape
@@ -12,14 +13,12 @@ from dotenv import load_dotenv
 from ai_service import (
     DEFAULT_GEMINI_MODEL,
     GeminiAssistantError,
-    GeminiBriefError,
     generate_contextual_answer,
-    generate_tourism_brief,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
-APP_BUILD = "2026.09.21.3"
+APP_BUILD = "2026.09.21.8"
 
 TRAINING_YEARS = (2017, 2018, 2019, 2023)
 HOLDOUT_YEARS = (2024, 2025)
@@ -187,6 +186,10 @@ def build_deterministic_context(
             "The analysis does not establish the cause of a state's gap.",
             "Scenario calculations are illustrative and not estimated policy effects.",
         ],
+        "decision_lenses": [
+            "Prioritization should consider opportunity alignment, delivery readiness and downside risk together.",
+            "A gap signal should trigger investigation before it triggers intervention.",
+        ],
     }
 
     if selected_region == "Malaysia":
@@ -205,6 +208,14 @@ def build_deterministic_context(
         context["national_visitors_million"] = round(
             year_features["visitors_000"].sum() / 1000,
             4,
+        )
+        top_three_visitors = year_features.nlargest(3, "visitors_000")[
+            "visitors_000"
+        ].sum()
+        national_visitors = year_features["visitors_000"].sum()
+        context["top_three_visitor_concentration_pct"] = round(
+            float(top_three_visitors / national_visitors * 100),
+            2,
         )
         context["meaningful_opportunities"] = (
             meaningful_opportunities[
@@ -238,6 +249,29 @@ def build_deterministic_context(
                 focus_row["state"],
                 selected_year,
             )
+            focus_features = year_features[
+                year_features["state"] == focus_row["state"]
+            ]
+            if not focus_features.empty:
+                focus_feature_row = focus_features.iloc[0]
+                context["focus_state_readiness_proxies"] = {
+                    "rooms_per_1k_residents": round(
+                        float(focus_feature_row["rooms_per_1k_residents"]),
+                        4,
+                    ),
+                    "rooms_relative_to_state_median": (
+                        "above"
+                        if focus_feature_row["rooms_per_1k_residents"]
+                        >= year_features["rooms_per_1k_residents"].median()
+                        else "below"
+                    ),
+                    "economic_strength_relative_to_state_median": (
+                        "above"
+                        if focus_feature_row["log_gdp_per_capita"]
+                        >= year_features["log_gdp_per_capita"].median()
+                        else "below"
+                    ),
+                }
         else:
             context["focus_state"] = None
             context["reliability_notes"] = get_reliability_notes(
@@ -259,6 +293,13 @@ def build_deterministic_context(
         return context
 
     selected_row = selected_rows.iloc[0]
+    selected_features = year_features[
+        year_features["state"] == selected_region
+    ]
+    selected_history = features[
+        (features["state"] == selected_region)
+        & (features["year"] <= selected_year)
+    ].sort_values("year")
     context.update(
         {
             "data_available": True,
@@ -290,8 +331,35 @@ def build_deterministic_context(
                 selected_region,
                 selected_year,
             ),
+            "visitor_history": dataframe_records(
+                selected_history.assign(
+                    visitors_million=selected_history["visitors_000"] / 1000
+                ),
+                ["year", "visitors_million"],
+            ),
         }
     )
+
+    if not selected_features.empty:
+        feature_row = selected_features.iloc[0]
+        context["readiness_proxies"] = {
+            "rooms_per_1k_residents": round(
+                float(feature_row["rooms_per_1k_residents"]),
+                4,
+            ),
+            "rooms_relative_to_state_median": (
+                "above"
+                if feature_row["rooms_per_1k_residents"]
+                >= year_features["rooms_per_1k_residents"].median()
+                else "below"
+            ),
+            "economic_strength_relative_to_state_median": (
+                "above"
+                if feature_row["log_gdp_per_capita"]
+                >= year_features["log_gdp_per_capita"].median()
+                else "below"
+            ),
+        }
 
     return context
 
@@ -308,6 +376,40 @@ def build_visitor_flows_context(selected_year):
     selected = df[df["year"] == selected_year].copy()
     top_states = selected.nlargest(3, "visitors_M")["state"].tolist()
     trajectories = observed[observed["state"].isin(top_states)]
+    trajectory_summaries = []
+    for state in top_states:
+        state_history = observed[observed["state"] == state].sort_values("year")
+        if state_history.empty:
+            continue
+
+        first_row = state_history.iloc[0]
+        last_row = state_history.iloc[-1]
+        summary = {
+            "state": state,
+            "first_observed_year": int(first_row["year"]),
+            "first_observed_visitors_million": round(
+                float(first_row["visitors_M"]), 4
+            ),
+            "latest_observed_year": int(last_row["year"]),
+            "latest_observed_visitors_million": round(
+                float(last_row["visitors_M"]), 4
+            ),
+        }
+        if len(state_history) >= 2:
+            prior_row = state_history.iloc[-2]
+            summary["prior_observed_year"] = int(prior_row["year"])
+            summary["change_since_prior_observation_pct"] = round(
+                (
+                    (float(last_row["visitors_M"]) - float(prior_row["visitors_M"]))
+                    / float(prior_row["visitors_M"])
+                    * 100
+                ),
+                2,
+            )
+        trajectory_summaries.append(summary)
+
+    national_total = selected["visitors_M"].sum()
+    top_three_total = selected.nlargest(3, "visitors_M")["visitors_M"].sum()
     return {
         "page": "Visitor flows",
         "selected_year": int(selected_year),
@@ -321,6 +423,14 @@ def build_visitor_flows_context(selected_year):
             trajectories.sort_values(["state", "year"]),
             ["state", "year", "visitors_M"],
         ),
+        "trajectory_summaries": trajectory_summaries,
+        "top_three_visitor_concentration_pct": round(
+            float(top_three_total / national_total * 100), 2
+        ),
+        "decision_lenses": [
+            "Distinguish persistent concentration from a temporary change between observations.",
+            "Investigate whether growth is supported by destination capacity and visitor value, not volume alone.",
+        ],
         "source": "DOSM official Malaysian tourism data",
         "limitations": [
             "No observations are available for 2020 to 2022.",
@@ -332,15 +442,28 @@ def build_visitor_flows_context(selected_year):
 
 def build_sustainability_context(selected_year):
     selected = df[df["year"] == selected_year].copy()
+    median_gdp = float(selected["log_gdp_per_capita"].median())
+    median_rooms = float(selected["rooms_per_1k_residents"].median())
+    median_visitors = float(selected["visitors_M"].median())
+    selected["economic_position"] = selected["log_gdp_per_capita"].apply(
+        lambda value: "above median" if value >= median_gdp else "below median"
+    )
+    selected["capacity_position"] = selected["rooms_per_1k_residents"].apply(
+        lambda value: "above median" if value >= median_rooms else "below median"
+    )
+    selected["visitor_volume_position"] = selected["visitors_M"].apply(
+        lambda value: "above median" if value >= median_visitors else "below median"
+    )
+    pressure_candidates = selected[
+        (selected["visitors_M"] >= median_visitors)
+        & (selected["rooms_per_1k_residents"] < median_rooms)
+    ].sort_values("visitors_M", ascending=False)
     return {
         "page": "Sustainability",
         "selected_year": int(selected_year),
-        "median_log_gdp_per_capita": round(
-            float(selected["log_gdp_per_capita"].median()), 4
-        ),
-        "median_rooms_per_1k_residents": round(
-            float(selected["rooms_per_1k_residents"].median()), 4
-        ),
+        "median_log_gdp_per_capita": round(median_gdp, 4),
+        "median_rooms_per_1k_residents": round(median_rooms, 4),
+        "median_visitors_million": round(median_visitors, 4),
         "state_capacity_evidence": dataframe_records(
             selected.sort_values("visitors_M", ascending=False),
             [
@@ -348,8 +471,19 @@ def build_sustainability_context(selected_year):
                 "log_gdp_per_capita",
                 "rooms_per_1k_residents",
                 "visitors_M",
+                "economic_position",
+                "capacity_position",
+                "visitor_volume_position",
             ],
         ),
+        "high_volume_below_median_room_supply": dataframe_records(
+            pressure_candidates,
+            ["state", "visitors_M", "rooms_per_1k_residents"],
+        ),
+        "decision_lenses": [
+            "Use the chart to identify where readiness checks are most urgent, not to declare carrying-capacity limits.",
+            "Validate accommodation occupancy, transport pressure, seasonality and resident impact before drawing a sustainability conclusion.",
+        ],
         "source": "DOSM official Malaysian tourism and socioeconomic data",
         "limitations": [
             "The chart is descriptive and does not measure tourism carrying capacity.",
@@ -371,18 +505,79 @@ def build_scenario_context(
     national_before,
     national_after,
 ):
+    selected_features = df[df["year"] == selected_year].copy()
+    selected_predictions = df_ml[df_ml["year"] == selected_year].copy()
+    median_rooms = float(selected_features["rooms_per_1k_residents"].median())
+    median_gdp = float(selected_features["log_gdp_per_capita"].median())
+
+    def state_context(state, observed_volume, scenario_volume):
+        feature_row = selected_features[
+            selected_features["state"] == state
+        ].iloc[0]
+        prediction_row = selected_predictions[
+            selected_predictions["state"] == state
+        ].iloc[0]
+        return {
+            "state": state,
+            "observed_visitors_million": round(observed_volume, 4),
+            "scenario_visitors_million": round(scenario_volume, 4),
+            "scenario_change_pct": round(
+                (scenario_volume - observed_volume) / observed_volume * 100,
+                2,
+            ),
+            "actual_visitor_share_pct": round(
+                float(prediction_row["actual_share_pct"]), 4
+            ),
+            "model_expected_share_pct": round(
+                float(prediction_row["expected_share_pct"]), 4
+            ),
+            "relative_opportunity_gap_pct": round(
+                float(prediction_row["opportunity_gap_pct"]), 4
+            ),
+            "gap_interpretation": classify_opportunity_gap(
+                prediction_row["opportunity_gap_pct"]
+            )["label"],
+            "rooms_per_1k_residents": round(
+                float(feature_row["rooms_per_1k_residents"]), 4
+            ),
+            "room_supply_relative_to_state_median": (
+                "above"
+                if feature_row["rooms_per_1k_residents"] >= median_rooms
+                else "below"
+            ),
+            "economic_strength_relative_to_state_median": (
+                "above"
+                if feature_row["log_gdp_per_capita"] >= median_gdp
+                else "below"
+            ),
+            "reliability_notes": get_reliability_notes(state, selected_year),
+        }
+
     return {
         "page": "Scenario lab",
         "selected_year": int(selected_year),
-        "source_state": source_state,
-        "target_state": target_state,
+        "source_state_evidence": state_context(
+            source_state,
+            source_volume,
+            source_scenario_volume,
+        ),
+        "target_state_evidence": state_context(
+            target_state,
+            target_volume,
+            target_scenario_volume,
+        ),
         "illustrative_shift_pct": int(shift_pct),
-        "source_observed_visitors_million": round(source_volume, 4),
-        "target_observed_visitors_million": round(target_volume, 4),
-        "source_scenario_visitors_million": round(source_scenario_volume, 4),
-        "target_scenario_visitors_million": round(target_scenario_volume, 4),
+        "illustrative_transfer_million": round(
+            source_volume - source_scenario_volume, 4
+        ),
         "national_before_million": round(float(national_before), 4),
         "national_after_million": round(float(national_after), 4),
+        "decision_lenses": [
+            "Does the target's structural opportunity signal align with the direction of the scenario?",
+            "Could the target absorb additional volume without creating a readiness bottleneck?",
+            "What visitor behavior, cost, seasonality and local-impact evidence is missing?",
+            "What downside would the source state face if demand were displaced rather than expanded?",
+        ],
         "source": "Arithmetic transformation of DOSM observed visitor volumes",
         "limitations": [
             "This is an illustrative arithmetic scenario, not a forecast.",
@@ -432,12 +627,736 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown(
+    """
+    <style>
+        #MainMenu {
+            visibility: hidden;
+        }
+
+        :root {
+            color-scheme: light only;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+OLLIE_CHAT_HTML = """
+<div class="ollie-chat-shell">
+  <div class="ollie-chat-frame">
+    <div class="ollie-chat-toolbar">
+      <span>Conversation</span>
+      <button id="ollie-clear" class="ollie-clear" type="button">Clear</button>
+    </div>
+    <div id="ollie-messages" class="ollie-messages" aria-live="polite"></div>
+  </div>
+  <div id="ollie-suggestions" class="ollie-suggestions"></div>
+  <div class="ollie-composer">
+    <textarea
+      id="ollie-input"
+      rows="2"
+      placeholder="Ask Ollie about this page"
+      aria-label="Ask Ollie about this page"
+    ></textarea>
+    <div class="ollie-actions">
+      <button
+        id="ollie-mic"
+        class="ollie-icon-button"
+        type="button"
+        aria-label="Start voice input"
+        title="Start voice input"
+      >
+        <span class="ollie-mic-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+            <path d="M6.5 11.5a5.5 5.5 0 0 0 11 0"></path>
+            <path d="M12 17v4"></path>
+            <path d="M9 21h6"></path>
+          </svg>
+        </span>
+        <span class="ollie-stop-icon" aria-hidden="true"></span>
+      </button>
+      <button
+        id="ollie-send"
+        class="ollie-icon-button ollie-send"
+        type="button"
+        aria-label="Send question"
+        title="Send question"
+      >
+        <span class="ollie-send-icon">&#8593;</span>
+        <span class="ollie-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+  <div id="ollie-status" class="ollie-status" role="status"></div>
+</div>
+"""
+
+OLLIE_CHAT_CSS = """
+.ollie-chat-shell {
+  box-sizing: border-box;
+  color: var(--st-text-color, #2d3142);
+  font-family: var(--st-font, "Inter", sans-serif);
+  overflow: hidden;
+  width: 100%;
+}
+
+.ollie-chat-frame {
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(45, 49, 66, 0.16);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ollie-chat-toolbar {
+  align-items: center;
+  border-bottom: 1px solid rgba(45, 49, 66, 0.09);
+  color: #737780;
+  display: flex;
+  font-size: 0.72rem;
+  justify-content: space-between;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.ollie-clear {
+  background: transparent;
+  border: 0;
+  color: #69706d;
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 2px;
+}
+
+.ollie-clear:hover {
+  color: #2d3142;
+}
+
+.ollie-messages {
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 10px;
+  scroll-behavior: smooth;
+}
+
+.ollie-empty {
+  color: #737780;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 4px 2px 10px;
+}
+
+.ollie-message {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 10px;
+  scroll-margin-top: 8px;
+}
+
+.ollie-message.user {
+  justify-content: flex-end;
+}
+
+.ollie-bubble {
+  background: #ffffff;
+  border: 1px solid rgba(45, 49, 66, 0.08);
+  border-radius: 10px;
+  box-sizing: border-box;
+  font-size: 0.78rem;
+  line-height: 1.43;
+  max-width: calc(100% - 35px);
+  overflow-wrap: anywhere;
+  padding: 8px 9px;
+  white-space: pre-wrap;
+}
+
+.ollie-message.user .ollie-bubble {
+  background: #3b3c54;
+  color: #ffffff;
+  max-width: 88%;
+}
+
+.ollie-message.assistant {
+  display: block;
+}
+
+.ollie-message.assistant .ollie-bubble {
+  background: transparent;
+  border: 0;
+  max-width: 100%;
+  padding: 2px 4px 8px;
+}
+
+.ollie-thinking-row {
+  align-items: center;
+  display: flex;
+}
+
+.ollie-thinking-avatar {
+  flex: 0 0 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  object-fit: contain;
+  width: 24px;
+}
+
+.ollie-thinking-label {
+  animation: ollie-shimmer 1.35s linear infinite;
+  background: linear-gradient(
+    90deg,
+    #777b84 10%,
+    #d9a078 42%,
+    #ffffff 50%,
+    #d9a078 58%,
+    #777b84 90%
+  );
+  background-clip: text;
+  background-size: 220% 100%;
+  color: transparent;
+  font-size: 0.76rem;
+  font-weight: 600;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ollie-implications {
+  border-top: 1px solid rgba(45, 49, 66, 0.08);
+  margin-top: 7px;
+  padding-top: 6px;
+}
+
+.ollie-implications-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.ollie-implications ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.ollie-caveat {
+  color: #737780;
+  font-size: 0.67rem;
+  line-height: 1.35;
+  margin-top: 7px;
+}
+
+.ollie-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.ollie-suggestion-label {
+  color: #737780;
+  flex-basis: 100%;
+  font-size: 0.68rem;
+  margin-bottom: -1px;
+}
+
+.ollie-chip {
+  background: rgba(133, 168, 143, 0.16);
+  border: 1px solid rgba(78, 111, 88, 0.28);
+  border-radius: 999px;
+  color: #405d48;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.69rem;
+  line-height: 1.25;
+  padding: 6px 9px;
+  text-align: left;
+}
+
+.ollie-chip:hover {
+  background: rgba(133, 168, 143, 0.28);
+  border-color: rgba(78, 111, 88, 0.5);
+}
+
+.ollie-composer {
+  align-items: flex-end;
+  background: #ffffff;
+  border: 1px solid #c9cec7;
+  border-radius: 12px;
+  box-sizing: border-box;
+  display: flex;
+  gap: 7px;
+  padding: 7px;
+  width: 100%;
+}
+
+.ollie-composer:focus-within {
+  border-color: #85a88f;
+  box-shadow: 0 0 0 2px rgba(133, 168, 143, 0.18);
+}
+
+#ollie-input {
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+  color: #2d3142;
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  max-height: 108px;
+  min-height: 50px;
+  outline: 0;
+  overflow-y: auto;
+  padding: 5px 4px;
+  resize: none;
+}
+
+#ollie-input::placeholder {
+  color: #8a8d95;
+}
+
+.ollie-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.ollie-icon-button {
+  align-items: center;
+  background: #85a88f;
+  border: 0;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  width: 36px;
+}
+
+.ollie-icon-button:hover {
+  background: #72967c;
+}
+
+.ollie-icon-button:disabled {
+  background: #dfe3df;
+  color: #9ca19d;
+  cursor: default;
+}
+
+.ollie-icon-button.recording {
+  background: #85a88f;
+}
+
+.ollie-mic-icon {
+  display: inline-flex;
+  height: 19px;
+  width: 19px;
+}
+
+.ollie-mic-icon svg {
+  fill: none;
+  height: 100%;
+  stroke: #ffffff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 100%;
+}
+
+.ollie-mic-icon svg rect {
+  fill: #ffffff;
+  stroke: none;
+}
+
+.ollie-stop-icon {
+  background: #ffffff;
+  border-radius: 2px;
+  display: none;
+  height: 12px;
+  width: 12px;
+}
+
+.ollie-icon-button.recording .ollie-mic-icon {
+  display: none;
+}
+
+.ollie-icon-button.recording .ollie-stop-icon {
+  display: block;
+}
+
+.ollie-send {
+  background: #e27d60;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.ollie-send:hover {
+  background: #d36c4f;
+}
+
+.ollie-spinner {
+  animation: ollie-spin 0.8s linear infinite;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  display: none;
+  height: 14px;
+  width: 14px;
+}
+
+.ollie-send.sending .ollie-send-icon {
+  display: none;
+}
+
+.ollie-send.sending .ollie-spinner {
+  display: block;
+}
+
+.ollie-status {
+  color: #9b5b49;
+  font-size: 0.67rem;
+  line-height: 1.35;
+  min-height: 0;
+  padding: 5px 2px 0;
+}
+
+@keyframes ollie-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ollie-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+"""
+
+OLLIE_CHAT_JS = """
+const ollieInstances = new WeakMap()
+
+function createElement(tagName, className, text) {
+  const element = document.createElement(tagName)
+  if (className) element.className = className
+  if (typeof text === "string") element.textContent = text
+  return element
+}
+
+export default function (component) {
+  const { data, parentElement, setTriggerValue } = component
+  const messagesElement = parentElement.querySelector("#ollie-messages")
+  const suggestionsElement = parentElement.querySelector("#ollie-suggestions")
+  const inputElement = parentElement.querySelector("#ollie-input")
+  const microphoneButton = parentElement.querySelector("#ollie-mic")
+  const sendButton = parentElement.querySelector("#ollie-send")
+  const clearButton = parentElement.querySelector("#ollie-clear")
+  const statusElement = parentElement.querySelector("#ollie-status")
+
+  if (
+    !messagesElement ||
+    !suggestionsElement ||
+    !inputElement ||
+    !microphoneButton ||
+    !sendButton ||
+    !clearButton ||
+    !statusElement
+  ) return
+
+  const componentHost = parentElement.host || parentElement
+  if (componentHost && componentHost.style) {
+    componentHost.style.overflow = "hidden"
+  }
+  messagesElement.style.height = `${data.conversation_height || 90}px`
+
+  let instance = ollieInstances.get(parentElement)
+  if (!instance) {
+    instance = {
+      recognition: null,
+      recording: false,
+      wantsRecording: false,
+      baseText: "",
+      finalTranscript: "",
+      messageSignature: "",
+      pendingQuestion: "",
+    }
+    ollieInstances.set(parentElement, instance)
+  }
+
+  const setSending = isSending => {
+    sendButton.classList.toggle("sending", isSending)
+    sendButton.disabled = isSending
+    microphoneButton.disabled = isSending
+  }
+
+  const resizeInput = () => {
+    inputElement.style.height = "auto"
+    inputElement.style.height = `${Math.min(inputElement.scrollHeight, 108)}px`
+  }
+
+  const submitQuestion = question => {
+    const cleanedQuestion = String(question || "").trim()
+    if (!cleanedQuestion || sendButton.disabled) return
+    if (instance.recording && instance.recognition) {
+      instance.wantsRecording = false
+      instance.recognition.stop()
+    }
+    statusElement.textContent = ""
+    instance.pendingQuestion = cleanedQuestion
+    const chatFrame = parentElement.querySelector(".ollie-chat-frame")
+    chatFrame.style.display = "block"
+
+    const pendingUserRow = createElement("div", "ollie-message user")
+    pendingUserRow.dataset.role = "user"
+    pendingUserRow.appendChild(
+      createElement("div", "ollie-bubble", cleanedQuestion)
+    )
+    messagesElement.appendChild(pendingUserRow)
+
+    const thinkingRow = createElement(
+      "div",
+      "ollie-message assistant ollie-thinking-row"
+    )
+    thinkingRow.dataset.role = "thinking"
+    if (data.thinking_avatar_url) {
+      const walkingTiger = createElement("img", "ollie-thinking-avatar")
+      walkingTiger.src = data.thinking_avatar_url
+      walkingTiger.alt = ""
+      thinkingRow.appendChild(walkingTiger)
+    }
+    thinkingRow.appendChild(
+      createElement("span", "ollie-thinking-label", "Thinking...")
+    )
+    messagesElement.appendChild(thinkingRow)
+
+    inputElement.value = ""
+    resizeInput()
+    suggestionsElement.replaceChildren()
+    setSending(true)
+    requestAnimationFrame(() => {
+      messagesElement.scrollTop = Math.max(0, pendingUserRow.offsetTop - 42)
+    })
+    setTriggerValue("submitted", cleanedQuestion)
+  }
+
+  const renderChip = (label, question) => {
+    const button = createElement("button", "ollie-chip", label)
+    button.type = "button"
+    button.onclick = () => submitQuestion(question)
+    suggestionsElement.appendChild(button)
+  }
+
+  const renderMessages = messages => {
+    const chatFrame = parentElement.querySelector(".ollie-chat-frame")
+    messagesElement.replaceChildren()
+
+    if (!messages.length) {
+      chatFrame.style.display = "none"
+      return
+    }
+    chatFrame.style.display = "block"
+
+    messages.forEach(message => {
+      const row = createElement("div", `ollie-message ${message.role}`)
+      row.dataset.role = message.role
+
+      const bubble = createElement("div", "ollie-bubble", message.content || "")
+
+      if (message.role === "assistant" && message.planning_implications?.length) {
+        const implications = createElement("div", "ollie-implications")
+        implications.appendChild(
+          createElement("div", "ollie-implications-title", "What this could mean")
+        )
+        const list = createElement("ul")
+        message.planning_implications.forEach(item => {
+          list.appendChild(createElement("li", "", item))
+        })
+        implications.appendChild(list)
+        bubble.appendChild(implications)
+      }
+
+      if (message.role === "assistant" && message.caveat) {
+        bubble.appendChild(
+          createElement("div", "ollie-caveat", `Limit: ${message.caveat}`)
+        )
+      }
+
+      row.appendChild(bubble)
+      messagesElement.appendChild(row)
+    })
+  }
+
+  const messages = Array.isArray(data.messages) ? data.messages : []
+  const messageSignature = JSON.stringify(
+    messages.map(message => [message.role, message.content, message.caveat])
+  )
+
+  if (messageSignature !== instance.messageSignature) {
+    instance.messageSignature = messageSignature
+    renderMessages(messages)
+    inputElement.value = ""
+    instance.pendingQuestion = ""
+    setSending(false)
+    requestAnimationFrame(() => {
+      const assistantMessages = messagesElement.querySelectorAll(
+        '[data-role="assistant"]'
+      )
+      const target = assistantMessages[assistantMessages.length - 1]
+      if (target) {
+        messagesElement.scrollTop = Math.max(0, target.offsetTop - 42)
+      } else {
+        messagesElement.scrollTop = messagesElement.scrollHeight
+      }
+    })
+  }
+
+  suggestionsElement.replaceChildren()
+  const followUps = messages.length
+    ? messages[messages.length - 1]?.follow_up_prompts || []
+    : data.initial_suggestions || []
+  if (followUps.length) {
+    suggestionsElement.appendChild(
+      createElement(
+        "div",
+        "ollie-suggestion-label",
+        messages.length ? "Ask next" : "Try asking"
+      )
+    )
+    followUps.forEach(prompt => renderChip(prompt, prompt))
+  }
+
+  clearButton.style.visibility = messages.length ? "visible" : "hidden"
+  statusElement.textContent = data.error || ""
+  if (data.error) {
+    renderMessages(messages)
+    inputElement.value = instance.pendingQuestion
+    instance.pendingQuestion = ""
+    setSending(false)
+    resizeInput()
+  }
+
+  inputElement.oninput = () => {
+    statusElement.textContent = ""
+    resizeInput()
+  }
+  inputElement.onkeydown = event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      submitQuestion(inputElement.value)
+    }
+  }
+  sendButton.onclick = () => submitQuestion(inputElement.value)
+  clearButton.onclick = () => {
+    statusElement.textContent = ""
+    setTriggerValue("cleared", Date.now())
+  }
+
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition
+
+  if (!SpeechRecognition) {
+    microphoneButton.disabled = true
+    microphoneButton.title = "Voice input is unavailable in this browser"
+  } else if (!instance.recognition) {
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = data.speech_language || "en-MY"
+
+    recognition.onstart = () => {
+      instance.recording = true
+      instance.baseText = inputElement.value.trim()
+      instance.finalTranscript = ""
+      microphoneButton.classList.add("recording")
+      microphoneButton.setAttribute("aria-label", "Stop voice input")
+      microphoneButton.title = "Stop voice input"
+      statusElement.textContent = ""
+    }
+
+    recognition.onresult = event => {
+      let interimTranscript = ""
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0].transcript.trim()
+        if (event.results[index].isFinal) {
+          instance.finalTranscript = `${instance.finalTranscript} ${transcript}`.trim()
+        } else {
+          interimTranscript = `${interimTranscript} ${transcript}`.trim()
+        }
+      }
+      inputElement.value = [
+        instance.baseText,
+        instance.finalTranscript,
+        interimTranscript,
+      ].filter(Boolean).join(" ")
+      resizeInput()
+      inputElement.focus()
+    }
+
+    recognition.onerror = event => {
+      instance.wantsRecording = false
+      statusElement.textContent =
+        event.error === "not-allowed"
+          ? "Microphone access was not allowed."
+          : "Voice input could not continue."
+    }
+
+    recognition.onend = () => {
+      instance.recording = false
+      if (instance.wantsRecording && !sendButton.disabled) {
+        try {
+          recognition.start()
+          return
+        } catch (error) {
+          instance.wantsRecording = false
+        }
+      }
+      microphoneButton.classList.remove("recording")
+      microphoneButton.setAttribute("aria-label", "Start voice input")
+      microphoneButton.title = "Start voice input"
+    }
+
+    instance.recognition = recognition
+  }
+
+  microphoneButton.onclick = () => {
+    if (!instance.recognition) return
+    if (instance.recording) {
+      instance.wantsRecording = false
+      instance.recognition.stop()
+    } else {
+      try {
+        instance.wantsRecording = true
+        instance.recognition.start()
+      } catch (error) {
+        instance.wantsRecording = false
+        statusElement.textContent = "Voice input could not start."
+      }
+    }
+  }
+}
+"""
+
+OLLIE_CHAT_COMPONENT = st.components.v2.component(
+    "lestari_ollie_chat",
+    html=OLLIE_CHAT_HTML,
+    css=OLLIE_CHAT_CSS,
+    js=OLLIE_CHAT_JS,
+)
+
 # --- 2. Safe Global CSS for Premium UI ---
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"] { background-color: #F7F5F0 !important; font-family: 'Inter', sans-serif; }
     [data-testid="stSidebar"] { background-color: #EBE8DE !important; border-right: 1px solid #DEDAD0; }
     [data-testid="stHeader"] { background-color: transparent !important; }
+    [data-testid="stSidebarHeader"] {
+        height: 3.25rem !important;
+        min-height: 3.25rem !important;
+        padding: 0.45rem 0.75rem !important;
+    }
+    [data-testid="stSidebarUserContent"] {
+        margin-top: -3.25rem !important;
+        padding-top: 0 !important;
+    }
+    [data-testid="stSidebarContent"] { padding-top: 0 !important; }
     
     .block-container { padding-top: 2.5rem !important; max-width: 1400px !important; }
     h1, h2, h3 { color: #2D3142 !important; font-weight: 600 !important; margin-top:0; padding-top:0;}
@@ -471,32 +1390,6 @@ st.markdown("""
     }
     [data-testid="stSidebar"] div[role="radiogroup"] > label[data-checked="true"] p {
         color: #E27D60 !important; font-weight: 700 !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stChatMessage"] {
-        background: rgba(255,255,255,0.58);
-        border: 1px solid rgba(45,49,66,0.08);
-        border-radius: 10px;
-        padding: 0.55rem;
-    }
-    [data-testid="stSidebar"] [data-testid="stChatMessageContent"] p {
-        font-size: 0.78rem !important;
-        line-height: 1.35 !important;
-    }
-    .ollie-context-chip {
-        display: inline-block;
-        background: rgba(133,168,143,0.18);
-        color: #4E6F58;
-        border-radius: 999px;
-        padding: 0.18rem 0.5rem;
-        font-size: 0.65rem;
-        font-weight: 700;
-        margin-bottom: 0.45rem;
-    }
-    .ollie-evidence {
-        color: #60646F;
-        font-size: 0.72rem;
-        line-height: 1.35;
-        margin-top: 0.3rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -614,23 +1507,23 @@ except Exception as error:
 
 # --- 4. Sidebar Navigation & Global Filters ---
 with st.sidebar:
-    st.markdown("<h2 style='color:#E27D60; margin-bottom:0; font-size: 1.8rem;'>🎯 LestariLens</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.75rem; color: #737373; font-weight:bold; letter-spacing: 1px; margin-top: -5px; margin-bottom: 25px;'>MALAYSIA TOURISM<br>INTELLIGENCE</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#E27D60; margin:0; padding-right:3.25rem; font-size:1.8rem; line-height:3.25rem;'>🎯 LestariLens</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.75rem; color:#737373; font-weight:bold; letter-spacing:1px; margin-top:-5px; margin-bottom:12px;'>MALAYSIA TOURISM<br>INTELLIGENCE</p>", unsafe_allow_html=True)
     
     selected_page = st.radio("Navigation", ["Overview", "Visitor flows", "Sustainability", "Scenario lab", "Evidence"], label_visibility="collapsed")
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.85rem; color: #2D3142; font-weight:bold; margin-bottom: -5px;'>📅 Global Year Filter</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.85rem; color:#2D3142; font-weight:bold; margin:8px 0 -5px;'>📅 Global Year Filter</p>", unsafe_allow_html=True)
     
     available_years = sorted(df['year'].unique().tolist(), reverse=True)
     selected_year = st.selectbox("Year", available_years, label_visibility="collapsed")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+
     st.markdown("""
-    <div style="background-color: #DDE2DA; padding: 15px; border-radius: 8px; font-size: 0.8rem; color: #555;">
+    <div style="background-color: #DDE2DA; padding: 12px 14px; margin-top: 14px; border-radius: 8px; font-size: 0.78rem; color: #555; line-height: 1.45;">
         <b>DOSM official data first</b><br><br>Every insight shows its source, year and analytical limitation.
     </div>
     """, unsafe_allow_html=True)
+
+    ollie_sidebar_slot = st.container()
 
 
 @st.cache_data
@@ -641,33 +1534,39 @@ def load_ollie_assets():
 
     sprite = Image.open(sprite_path).convert("RGBA")
     frame_size = 64
-    row_index = 7
-    frames = [
-        sprite.crop(
-            (
-                column_index * frame_size,
-                row_index * frame_size,
-                (column_index + 1) * frame_size,
-                (row_index + 1) * frame_size,
+    def build_animation(row_index, duration):
+        frames = [
+            sprite.crop(
+                (
+                    column_index * frame_size,
+                    row_index * frame_size,
+                    (column_index + 1) * frame_size,
+                    (row_index + 1) * frame_size,
+                )
             )
+            for column_index in range(4)
+        ]
+        animation_buffer = BytesIO()
+        frames[0].save(
+            animation_buffer,
+            format="GIF",
+            save_all=True,
+            append_images=frames[1:],
+            duration=duration,
+            loop=0,
+            disposal=2,
         )
-        for column_index in range(4)
-    ]
+        return animation_buffer.getvalue()
 
-    animation_buffer = BytesIO()
-    frames[0].save(
-        animation_buffer,
-        format="GIF",
-        save_all=True,
-        append_images=frames[1:],
+    status_animation = build_animation(
+        row_index=7,
         duration=180,
-        loop=0,
-        disposal=2,
     )
-
-    icon_buffer = BytesIO()
-    frames[0].save(icon_buffer, format="PNG")
-    return animation_buffer.getvalue(), icon_buffer.getvalue()
+    thinking_animation = build_animation(
+        row_index=5,
+        duration=135,
+    )
+    return status_animation, thinking_animation
 
 
 def render_ollie_status(image_placeholder, copy_placeholder, title, subtitle):
@@ -679,61 +1578,38 @@ def render_ollie_status(image_placeholder, copy_placeholder, title, subtitle):
     copy_placeholder.markdown(f"**{title}**  \n{subtitle}")
 
 
-def render_compact_ai_insight(context, title, question, state_key):
-    api_key, model = get_gemini_settings()
-    result_key = f"page_insight::{state_key}"
-
-    with st.container(border=True):
-        heading_col, button_col = st.columns([2.5, 1])
-        with heading_col:
-            st.subheader(title)
-            st.caption("Optional Gemini interpretation grounded in this page's data.")
-        with button_col:
-            generate_clicked = st.button(
-                "Generate insight",
-                key=f"generate::{state_key}",
-                width="stretch",
-                disabled=not bool(api_key),
-                help=(
-                    "Generate a short page-specific interpretation."
-                    if api_key
-                    else "Add GEMINI_API_KEY to the project .env file."
-                ),
-            )
-
-        if generate_clicked:
-            try:
-                with st.spinner("Ollie is checking the page evidence..."):
-                    result = generate_contextual_answer(
-                        api_key=api_key,
-                        context=context,
-                        question=question,
-                        model=model,
-                    )
-                    st.session_state[result_key] = result.model_dump()
-            except GeminiAssistantError:
-                st.warning(
-                    "Ollie could not return a fully grounded insight. "
-                    "The dashboard evidence remains available."
-                )
-
-        result = st.session_state.get(result_key)
-        if result:
-            st.write(result["answer"])
-            for evidence_item in result.get("evidence", []):
-                st.markdown(f"- {evidence_item}")
-            st.caption(f"Limitation: {result['caveat']}")
+def get_ollie_suggestions(page_name):
+    suggestions = {
+        "Overview": [
+            "Why does this gap matter?",
+            "What should planners compare?",
+        ],
+        "Visitor flows": [
+            "Is this growth concentrated?",
+            "What risk could follow?",
+        ],
+        "Sustainability": [
+            "Where could capacity tighten?",
+            "What should be validated?",
+        ],
+        "Scenario lab": [
+            "What trade-offs emerge?",
+            "Is the target ready?",
+        ],
+        "Evidence": [
+            "How reliable is this gap?",
+            "What can this model not prove?",
+        ],
+    }
+    return suggestions.get(page_name, [])
 
 
-def render_ollie_assistant(context, page_name, year):
+def render_ollie_assistant(context, page_name, year, sidebar_slot):
     api_key, model = get_gemini_settings()
     st.session_state.setdefault("ollie_messages", [])
-    voice_mode_key = f"ollie_voice_mode::{page_name}::{year}"
-    voice_nonce_key = f"ollie_voice_nonce::{page_name}::{year}"
-    st.session_state.setdefault(voice_mode_key, False)
-    st.session_state.setdefault(voice_nonce_key, 0)
+    error_key = f"ollie_error::{page_name}::{year}"
 
-    with st.sidebar:
+    with sidebar_slot:
         st.divider()
         status_image_column, status_copy_column = st.columns([1, 3])
         status_image_placeholder = status_image_column.empty()
@@ -742,11 +1618,7 @@ def render_ollie_assistant(context, page_name, year):
             image_placeholder=status_image_placeholder,
             copy_placeholder=status_copy_placeholder,
             title="Ask Ollie",
-            subtitle="Grounded tourism data assistant",
-        )
-        st.markdown(
-            f'<span class="ollie-context-chip">{escape(page_name)} · {year}</span>',
-            unsafe_allow_html=True,
+            subtitle="Ask follow-ups grounded in this page's validated data",
         )
 
         current_messages = [
@@ -754,146 +1626,105 @@ def render_ollie_assistant(context, page_name, year):
             for message in st.session_state["ollie_messages"]
             if message["page"] == page_name and message["year"] == year
         ]
-
-        with st.container(height=245, border=False):
-            if not current_messages:
-                st.caption(
-                    "Ask about the current page. Ollie reads validated data, "
-                    "not a screenshot."
-                )
-            for message in current_messages[-4:]:
-                if message["role"] == "assistant":
-                    _, ollie_icon_bytes = load_ollie_assets()
-                    with st.chat_message(
-                        "assistant",
-                        avatar=ollie_icon_bytes or "🐯",
-                    ):
-                        st.write(message["content"])
-                        for item in message.get("evidence", []):
-                            st.markdown(f"- {item}")
-                        if message.get("caveat"):
-                            st.caption(f"Limitation: {message['caveat']}")
-                else:
-                    with st.chat_message("user"):
-                        st.write(message["content"])
-
-        prompt_value = st.chat_input(
-            "Ask Ollie about this page",
-            key=f"ollie_input::{page_name}::{year}",
-        )
-
-        voice_col, clear_col = st.columns(2)
-        with voice_col:
-            if st.button(
-                "🎙️ Voice",
-                key=f"open_voice::{page_name}::{year}",
-                width="stretch",
-                disabled=st.session_state[voice_mode_key],
-                help="Open the recorder and request microphone permission.",
-            ):
-                st.session_state[voice_mode_key] = True
-                st.rerun()
-        with clear_col:
-            if st.button(
-                "Clear",
-                key=f"clear_ollie::{page_name}::{year}",
-                width="stretch",
-            ):
-                st.session_state["ollie_messages"] = [
-                    message
-                    for message in st.session_state["ollie_messages"]
-                    if not (
-                        message["page"] == page_name
-                        and message["year"] == year
-                    )
-                ]
-                st.rerun()
-        st.caption(
-            "Powered by Gemini 3.1 Flash Lite · grounded in page data · "
-            f"Build {APP_BUILD}"
-        )
-
-        audio_file = None
-        if st.session_state[voice_mode_key]:
-            st.caption(
-                "Voice mode is active. Safari will request microphone "
-                "permission before recording."
+        _, thinking_animation_bytes = load_ollie_assets()
+        thinking_avatar_url = ""
+        if thinking_animation_bytes:
+            encoded_thinking_icon = base64.b64encode(
+                thinking_animation_bytes
+            ).decode("ascii")
+            thinking_avatar_url = (
+                f"data:image/gif;base64,{encoded_thinking_icon}"
             )
-            audio_file = st.audio_input(
-                "Record a voice question",
-                sample_rate=16000,
-                key=(
-                    f"ollie_recorder::{page_name}::{year}::"
-                    f"{st.session_state[voice_nonce_key]}"
+
+        component_messages = [
+            {
+                "role": message["role"],
+                "content": message["content"],
+                "planning_implications": message.get(
+                    "planning_implications", []
                 ),
-                label_visibility="collapsed",
-            )
-            if st.button(
-                "Cancel voice input",
-                key=f"cancel_voice::{page_name}::{year}",
-                width="stretch",
-            ):
-                st.session_state[voice_mode_key] = False
-                st.session_state[voice_nonce_key] += 1
-                st.rerun()
+                "follow_up_prompts": message.get("follow_up_prompts", []),
+                "caveat": message.get("caveat", ""),
+            }
+            for message in current_messages
+        ]
 
-        if prompt_value or audio_file:
-            question = (prompt_value or "").strip()
-            audio_bytes = audio_file.getvalue() if audio_file else None
-            audio_mime_type = (
-                getattr(audio_file, "type", None) or "audio/wav"
-                if audio_file
-                else "audio/wav"
-            )
+        has_conversation = bool(current_messages)
+        conversation_height = 360 if has_conversation else 90
+        component_height = 555 if has_conversation else 205
+
+        chat_result = OLLIE_CHAT_COMPONENT(
+            key=f"ollie_chat::{page_name}::{year}",
+            data={
+                "messages": component_messages,
+                "initial_suggestions": get_ollie_suggestions(page_name),
+                "thinking_avatar_url": thinking_avatar_url,
+                "conversation_height": conversation_height,
+                "speech_language": "en-MY",
+                "error": st.session_state.get(error_key, ""),
+            },
+            on_submitted_change=lambda: None,
+            on_cleared_change=lambda: None,
+            width="stretch",
+            height=component_height,
+        )
+
+        if getattr(chat_result, "cleared", None):
+            st.session_state["ollie_messages"] = [
+                message
+                for message in st.session_state["ollie_messages"]
+                if not (
+                    message["page"] == page_name
+                    and message["year"] == year
+                )
+            ]
+            st.session_state.pop(error_key, None)
+            st.rerun()
+
+        submitted_question = (
+            getattr(chat_result, "submitted", None) or ""
+        ).strip()
+        if submitted_question:
+            question = submitted_question
 
             if not api_key:
-                st.warning("Add GEMINI_API_KEY to the project .env file.")
-                return
+                st.session_state[error_key] = (
+                    "Ollie is unavailable because GEMINI_API_KEY is not "
+                    "configured in the project .env file."
+                )
+                st.rerun()
 
             model_history = [
                 {
                     "role": message["role"],
                     "content": message["content"],
                 }
-                for message in current_messages[-4:]
+                for message in current_messages[-6:]
             ]
-            render_ollie_status(
-                image_placeholder=status_image_placeholder,
-                copy_placeholder=status_copy_placeholder,
-                title="Ollie is checking",
-                subtitle="Validating against page data",
-            )
+            st.session_state.pop(error_key, None)
 
             try:
-                with st.spinner("Preparing a grounded answer..."):
-                    answer = generate_contextual_answer(
-                        api_key=api_key,
-                        context=context,
-                        question=question,
-                        history=model_history,
-                        model=model,
-                        audio_bytes=audio_bytes,
-                        audio_mime_type=audio_mime_type,
-                    )
-
-                displayed_question = question
-                if answer.transcript:
-                    displayed_question = f"🎙️ {answer.transcript}"
-                elif not displayed_question:
-                    displayed_question = "🎙️ Voice question"
+                answer = generate_contextual_answer(
+                    api_key=api_key,
+                    context=context,
+                    question=question,
+                    history=model_history,
+                    model=model,
+                )
 
                 st.session_state["ollie_messages"].extend(
                     [
                         {
                             "role": "user",
-                            "content": displayed_question,
+                            "content": question,
                             "page": page_name,
                             "year": year,
                         },
                         {
                             "role": "assistant",
-                            "content": answer.answer,
-                            "evidence": answer.evidence,
+                            "content": answer.direct_answer,
+                            "planning_implications": answer.planning_implications,
+                            "follow_up_prompts": answer.follow_up_prompts,
                             "caveat": answer.caveat,
                             "page": page_name,
                             "year": year,
@@ -902,24 +1733,22 @@ def render_ollie_assistant(context, page_name, year):
                 )
                 st.session_state["ollie_messages"] = st.session_state[
                     "ollie_messages"
-                ][-20:]
-                st.session_state[voice_mode_key] = False
-                st.session_state[voice_nonce_key] += 1
+                ][-30:]
+                st.session_state.pop(error_key, None)
                 st.rerun()
             except GeminiAssistantError:
-                st.session_state[voice_mode_key] = False
-                st.session_state[voice_nonce_key] += 1
-                st.warning(
-                    "Ollie could not verify that answer against the current "
-                    "page data. Please try a more specific question."
+                st.session_state[error_key] = (
+                    "That request was not completed because Ollie could not "
+                    "validate the response against this page. Your previous "
+                    "answer, if any, is still shown above."
                 )
+                st.rerun()
 
 
 # ==========================================
 # PAGE 1: OVERVIEW DASHBOARD
 # ==========================================
 def render_overview():
-    gemini_api_key, gemini_model = get_gemini_settings()
     col_head1, col_head2 = st.columns([2.5, 1.5])
     states_list = ["Malaysia"] + sorted(df['state'].unique().tolist())
 
@@ -930,18 +1759,9 @@ def render_overview():
     with col_head2:
         st.markdown("<br>", unsafe_allow_html=True)
         selected_region = st.selectbox("Region", states_list, label_visibility="collapsed")
-            
-        generate_brief_clicked = st.button(
-            "✨ Generate grounded AI brief",
-            type="primary",
-            width="stretch",
-            disabled=not bool(gemini_api_key),
-            help=(
-                "Generate a Gemini analysis grounded only in the selected "
-                "dashboard context."
-                if gemini_api_key
-                else "Add GEMINI_API_KEY to the project .env file."
-            ),
+        st.caption(
+            "Use Ollie in the sidebar to explore implications and follow-up "
+            "questions for this selection."
         )
 
     # Time calculations
@@ -994,28 +1814,6 @@ def render_overview():
         features=df,
         predictions=df_ml,
     )
-
-    brief_state_key = f"gemini_brief::{selected_region}::{selected_year}"
-
-    if generate_brief_clicked:
-        try:
-            with st.spinner("Analyzing the verified dashboard context..."):
-                generated_brief = generate_tourism_brief(
-                    api_key=gemini_api_key,
-                    context=insight_context,
-                    model=gemini_model,
-                )
-                st.session_state[brief_state_key] = (
-                    generated_brief.model_dump()
-                )
-        except GeminiBriefError:
-            st.warning(
-                "Gemini is temporarily unavailable or returned an "
-                "unverifiable response. The deterministic evidence brief "
-                "remains available."
-            )
-
-    ai_brief = st.session_state.get(brief_state_key)
 
     if prev_year:
         delta_label = f"↑ {v_growth:.1f}% vs {prev_year}" if v_growth >= 0 else f"↓ {abs(v_growth):.1f}% vs {prev_year}"
@@ -1219,18 +2017,8 @@ def render_overview():
                 f"({focus_state}, {selected_year})"
             )
 
-        if ai_brief:
-            panel_title = "Gemini Opportunity Brief"
-            panel_body = (
-                f"<b>{escape(ai_brief['headline'])}</b><br><br>"
-                f"{escape(ai_brief['interpretation'])}<br><br>"
-                f"<b>Recommended investigation:</b> "
-                f"{escape(ai_brief['recommended_action'])}<br><br>"
-                f"<b>Limitation:</b> {escape(ai_brief['caveat'])}"
-            )
-        else:
-            panel_title = "Evidence Brief"
-            panel_body = insight_body
+        panel_title = "Evidence Brief"
+        panel_body = insight_body
 
         st.markdown(
             f"""
@@ -1293,14 +2081,8 @@ def render_overview():
                 st.warning(note)
 
             st.caption(
-                (
-                    f"Gemini model: {gemini_model}. Narrative is generated "
-                    "from the deterministic dashboard context; all numeric "
-                    "evidence is rendered directly from validated data."
-                    if ai_brief
-                    else "This evidence brief is generated deterministically "
-                    "from the selected dashboard data."
-                )
+                "This evidence brief is generated deterministically from "
+                "the selected dashboard data."
             )
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1602,15 +2384,6 @@ def render_visitor_flows():
         "intentionally disconnected across this gap."
     )
 
-    render_compact_ai_insight(
-        context=page_context,
-        title="Ollie Trend Insight",
-        question=(
-            "Summarize the most decision-relevant visitor trend visible on "
-            "this page without inferring a cause."
-        ),
-        state_key=f"visitor_flows::{selected_year}",
-    )
     return page_context
 
 
@@ -1638,15 +2411,6 @@ def render_sustainability():
     fig_scatter.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=500)
     st.plotly_chart(fig_scatter, width="stretch")
 
-    render_compact_ai_insight(
-        context=page_context,
-        title="Ollie Capacity Insight",
-        question=(
-            "Identify the most decision-relevant infrastructure-capacity "
-            "pattern on this page without treating it as a policy threshold."
-        ),
-        state_key=f"sustainability::{selected_year}",
-    )
     return page_context
 
 
@@ -1795,18 +2559,6 @@ def render_scenario_lab():
         national_before=national_before,
         national_after=national_after,
     )
-    render_compact_ai_insight(
-        context=page_context,
-        title="Ollie Scenario Interpretation",
-        question=(
-            "Interpret this arithmetic redistribution and state what a policy "
-            "decision-maker must not conclude from it."
-        ),
-        state_key=(
-            f"scenario::{selected_year}::{source_state}::{target_state}::"
-            f"{shift_pct}"
-        ),
-    )
     return page_context
 
 # ==========================================
@@ -1858,10 +2610,6 @@ def render_evidence():
     
     st.subheader("Machine Learning Output (Opportunity Gap)")
     st.dataframe(df_ml, width="stretch")
-    st.info(
-        "Ollie can answer methodology and selected-year evidence questions "
-        "from the sidebar. No automatic AI summary is generated on this page."
-    )
     return page_context
 
 
@@ -1881,4 +2629,5 @@ render_ollie_assistant(
     context=current_page_context,
     page_name=selected_page,
     year=int(selected_year),
+    sidebar_slot=ollie_sidebar_slot,
 )

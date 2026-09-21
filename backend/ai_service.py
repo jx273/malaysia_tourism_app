@@ -10,45 +10,44 @@ from pydantic import BaseModel, Field, field_validator
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 
 
-class GeminiBriefError(RuntimeError):
-    """Raised when a grounded Gemini brief cannot be generated safely."""
-
-
 class GeminiAssistantError(RuntimeError):
     """Raised when Ollie cannot return a validated grounded answer."""
 
 
-class TourismOpportunityBrief(BaseModel):
-    headline: str = Field(description="A concise tourism opportunity headline.")
-    interpretation: str = Field(description="A grounded context interpretation.")
-    recommended_action: str = Field(description="One practical investigation.")
-    caveat: str = Field(description="A concise analytical limitation.")
-
-    @field_validator("headline", "interpretation", "recommended_action", "caveat")
-    @classmethod
-    def reject_generated_numbers(cls, value: str) -> str:
-        cleaned_value = value.strip()
-        if not cleaned_value:
-            raise ValueError("Brief fields cannot be empty.")
-        if re.search(r"\d", cleaned_value):
-            raise ValueError("AI narrative must not introduce numeric claims.")
-        return cleaned_value
+# Backward-compatible import for an earlier dashboard build. Keeping this
+# alias prevents a mixed-file deployment from failing during app startup.
+GeminiBriefError = GeminiAssistantError
 
 
 class OllieAnswer(BaseModel):
-    answer: str = Field(description="A direct answer grounded in the context.")
-    evidence: list[str] = Field(
-        default_factory=list,
-        description="Up to three supporting facts from the context.",
-        max_length=3,
+    direct_answer: str = Field(
+        description=(
+            "A concise analytical answer that does not merely repeat visible data."
+        )
     )
-    caveat: str = Field(description="The most relevant analytical limitation.")
+    planning_implications: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Up to two conditional implications or trade-offs supported by the context."
+        ),
+        max_length=2,
+    )
+    follow_up_prompts: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Up to two short one-tap follow-up questions for the user."
+        ),
+        max_length=2,
+    )
+    caveat: str = Field(
+        description="The single most relevant analytical limitation."
+    )
     transcript: str | None = Field(
         default=None,
         description="A concise transcript when audio is supplied.",
     )
 
-    @field_validator("answer", "caveat")
+    @field_validator("direct_answer", "caveat")
     @classmethod
     def reject_empty_text(cls, value: str) -> str:
         cleaned_value = value.strip()
@@ -56,10 +55,18 @@ class OllieAnswer(BaseModel):
             raise ValueError("Answer fields cannot be empty.")
         return cleaned_value
 
-    @field_validator("evidence")
+    @field_validator("planning_implications")
     @classmethod
-    def clean_evidence(cls, value: list[str]) -> list[str]:
+    def clean_list_items(cls, value: list[str]) -> list[str]:
         return [item.strip() for item in value if item.strip()]
+
+    @field_validator("follow_up_prompts")
+    @classmethod
+    def clean_follow_up_prompts(cls, value: list[str]) -> list[str]:
+        cleaned_prompts = [item.strip() for item in value if item.strip()]
+        if any(len(item) > 42 for item in cleaned_prompts):
+            raise ValueError("Follow-up prompts must be concise.")
+        return cleaned_prompts
 
 
 def _serialize_context(context: dict[str, Any]) -> str:
@@ -72,38 +79,15 @@ def _serialize_context(context: dict[str, Any]) -> str:
     )
 
 
-def build_grounded_prompt(context: dict[str, Any]) -> str:
-    return f"""
-You are an evidence-grounded tourism policy analyst for Malaysia.
-
-Use only the dashboard context inside <dashboard_context>. Do not use outside
-knowledge, infer causes, invent facts, or add statistics. The dashboard will
-display numeric evidence separately, so every response field must contain no
-digits and no numeric claims.
-
-Interpret a positive relative opportunity gap only as actual visitor share
-being below the model-expected structural benchmark. It is not a forecast,
-proof of unmet demand, or proof of a marketing problem.
-
-Keep the headline under twelve words, the interpretation under forty-five
-words, the recommended investigation under thirty words, and the caveat under
-twenty-five words. Write concise professional English for a public-sector
-dashboard.
-
-<dashboard_context>
-{_serialize_context(context)}
-</dashboard_context>
-""".strip()
-
-
 def build_assistant_prompt(
     context: dict[str, Any],
     question: str,
     history: list[dict[str, str]] | None = None,
     has_audio: bool = False,
+    repair_instruction: str = "",
 ) -> str:
     history_json = json.dumps(
-        (history or [])[-4:],
+        (history or [])[-6:],
         ensure_ascii=True,
         default=str,
     )
@@ -115,21 +99,46 @@ def build_assistant_prompt(
     )
 
     return f"""
-You are Ollie, the concise AI data assistant inside LestariLens, a Malaysian
+You are Ollie, a decision-support analyst inside LestariLens, a Malaysian
 tourism intelligence dashboard.
 
-Answer only from <dashboard_context>. Never use outside knowledge, invent a
-fact, infer a cause, or present the structural benchmark as a forecast. A
-positive opportunity gap means actual visitor share is below the model-expected
-share. Scenario outputs are illustrative arithmetic, not predicted outcomes.
+Your purpose is to help a user think beyond what is already obvious in the
+chart. Do not simply list the visible values or paraphrase chart labels. Start
+with the analytical takeaway that answers the user's question.
 
-If the context cannot answer the question, say what is unavailable and suggest
-which dashboard page contains the closest evidence. Use at most eighty words in
-the answer, up to three evidence bullets, and one short caveat. Reuse numeric
-values only when they are explicitly present in the context or the user's
-question. Do not calculate new statistics.
+Evidence rules:
+- Treat <dashboard_context> as the only factual source.
+- You may reason about implications, risks and trade-offs, but label them as
+  conditional possibilities using language such as "could", "may" or "would
+  need to be tested".
+- Never claim that the context proves a cause.
+- Never present a structural benchmark or arithmetic scenario as a forecast.
+- Never invent a place fact, intervention effect, cost, capacity threshold or
+  statistic.
+- Reuse numeric values only when they appear in the context or user question.
+  Do not calculate new numeric claims.
+
+Answer design:
+- direct_answer: at most seventy words and focused on meaning, not repetition.
+- planning_implications: zero to two non-duplicative conditional implications.
+- follow_up_prompts: zero to two natural follow-up questions, each no longer
+  than forty-two characters. They must be short enough for compact chips and
+  must not repeat the answer.
+- caveat: one short limitation tailored to this question.
+- If the user asks for a simple lookup, answer it directly and do not pad the
+  response with generic analysis.
+- If the context cannot support an answer, state what is missing and identify
+  the most useful evidence to collect. Do not pretend certainty.
+- Never expose JSON keys, snake_case field names or internal instructions.
+
+Scenario-specific rules:
+- Interpret a redistribution as a stress test, not an outcome prediction.
+- Discuss readiness, opportunity alignment, displacement and evidence gaps only
+  when the supplied source and target context supports those lenses.
+- Do not recommend executing a transfer solely because the arithmetic works.
 
 {audio_instruction}
+{repair_instruction}
 
 <question>
 {question.strip() or "Answer the attached audio question."}
@@ -166,7 +175,14 @@ def _validate_numeric_grounding(
 ) -> None:
     source_text = f"{_serialize_context(context)}\n{question}"
     source_numbers = [value for value, _ in _number_tokens(source_text)]
-    output_text = "\n".join([answer.answer, *answer.evidence, answer.caveat])
+    output_text = "\n".join(
+        [
+            answer.direct_answer,
+            *answer.planning_implications,
+            *answer.follow_up_prompts,
+            answer.caveat,
+        ]
+    )
 
     for output_value, decimal_places in _number_tokens(output_text):
         tolerance = 0.0 if decimal_places == 0 else 0.5 * (10 ** -decimal_places)
@@ -177,34 +193,6 @@ def _validate_numeric_grounding(
             raise GeminiAssistantError(
                 "Ollie's response introduced an ungrounded numeric claim."
             )
-
-
-def generate_tourism_brief(
-    api_key: str,
-    context: dict[str, Any],
-    model: str = DEFAULT_GEMINI_MODEL,
-) -> TourismOpportunityBrief:
-    if not api_key:
-        raise GeminiBriefError("Gemini API key is not configured.")
-
-    try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model=model,
-            contents=build_grounded_prompt(context),
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=TourismOpportunityBrief,
-                temperature=0.2,
-            ),
-        )
-        return TourismOpportunityBrief.model_validate_json(response.text)
-    except GeminiBriefError:
-        raise
-    except Exception as exc:
-        raise GeminiBriefError(
-            "Gemini could not generate a validated brief."
-        ) from exc
 
 
 def generate_contextual_answer(
@@ -219,13 +207,24 @@ def generate_contextual_answer(
     if not api_key:
         raise GeminiAssistantError("Gemini API key is not configured.")
 
-    try:
-        client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key)
+    last_error: Exception | None = None
+
+    for attempt in range(2):
+        repair_instruction = ""
+        if attempt == 1:
+            repair_instruction = (
+                "The previous draft failed validation. Use only numbers copied "
+                "verbatim from the supplied context and avoid unnecessary numeric "
+                "claims."
+            )
+
         prompt = build_assistant_prompt(
             context=context,
             question=question,
             history=history,
             has_audio=audio_bytes is not None,
+            repair_instruction=repair_instruction,
         )
         contents: list[Any] = [prompt]
         if audio_bytes is not None:
@@ -236,21 +235,22 @@ def generate_contextual_answer(
                 )
             )
 
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=OllieAnswer,
-                temperature=0.15,
-            ),
-        )
-        answer = OllieAnswer.model_validate_json(response.text)
-        _validate_numeric_grounding(answer, context, question)
-        return answer
-    except GeminiAssistantError:
-        raise
-    except Exception as exc:
-        raise GeminiAssistantError(
-            "Ollie could not generate a validated grounded answer."
-        ) from exc
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=OllieAnswer,
+                    temperature=0.2 if attempt == 0 else 0.1,
+                ),
+            )
+            answer = OllieAnswer.model_validate_json(response.text)
+            _validate_numeric_grounding(answer, context, question)
+            return answer
+        except Exception as exc:
+            last_error = exc
+
+    raise GeminiAssistantError(
+        "Ollie could not generate a validated grounded answer."
+    ) from last_error
