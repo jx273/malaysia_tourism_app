@@ -621,7 +621,7 @@ def build_evidence_context(selected_year):
 
 # --- 1. Page Configuration ---
 st.set_page_config(
-    page_title="LestariLens Intelligence",
+    page_title="JejakLestari Intelligence",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -1507,7 +1507,7 @@ except Exception as error:
 
 # --- 4. Sidebar Navigation & Global Filters ---
 with st.sidebar:
-    st.markdown("<h2 style='color:#E27D60; margin:0; padding-right:3.25rem; font-size:1.8rem; line-height:3.25rem;'>🎯 LestariLens</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#E27D60; margin:0; padding-right:3.25rem; font-size:1.8rem; line-height:3.25rem;'>🎯 JejakLestari</h2>", unsafe_allow_html=True)
     st.markdown("<p style='font-size:0.75rem; color:#737373; font-weight:bold; letter-spacing:1px; margin-top:-5px; margin-bottom:12px;'>MALAYSIA TOURISM<br>INTELLIGENCE</p>", unsafe_allow_html=True)
     
     selected_page = st.radio("Navigation", ["Overview", "Visitor flows", "Sustainability", "Scenario lab", "Evidence"], label_visibility="collapsed")
@@ -1575,7 +1575,7 @@ def render_ollie_status(image_placeholder, copy_placeholder, title, subtitle):
         image_placeholder.image(animation_bytes, width=64)
     else:
         image_placeholder.markdown("## 🐯")
-    copy_placeholder.markdown(f"**{title}**  \n{subtitle}")
+    copy_placeholder.markdown(f"**{title}** \n{subtitle}")
 
 
 def get_ollie_suggestions(page_name):
