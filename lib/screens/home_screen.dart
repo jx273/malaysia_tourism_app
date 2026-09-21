@@ -222,6 +222,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // Task 7: Tourism Opportunities Mock Section
+                _buildHiddenGemsSection(filteredAllEvents),
+                const SizedBox(height: 24),
+
                 ValueListenableBuilder<String>(
                   valueListenable: UserSettings.instance.selectedState,
                   builder: (context, state, _) {
@@ -330,6 +334,88 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       ),
+    );
+  }
+
+  Widget _buildHiddenGemsSection(List<TourismEvent> events) {
+    if (events.isEmpty) return const SizedBox.shrink();
+    
+    // Select just 2 events to feature as mock hidden gems in Johor
+    final gemEvents = events.take(2).toList();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              const Icon(Icons.diamond_outlined, color: Color(0xFFE07A5F), size: 18),
+              const SizedBox(width: 6),
+              const Text(
+                'HIDDEN OPPORTUNITIES',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF3D405B), letterSpacing: 1.2),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF81B29A).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF81B29A).withValues(alpha: 0.4), width: 1.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🌟 Discover Johor', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF3D405B))),
+              const SizedBox(height: 6),
+              Text(
+                'Johor has incredible infrastructure but fewer crowds right now. Visiting helps distribute tourism sustainably!', 
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4, fontWeight: FontWeight.w500)
+              ),
+              const SizedBox(height: 14),
+              Column(
+                children: gemEvents.map((ev) => GestureDetector(
+                  onTap: () => _openEventDetail(ev),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))]
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(ev.imageUrl, width: 50, height: 50, fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(ev.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF3D405B))),
+                              const SizedBox(height: 4),
+                              Text(ev.category, style: const TextStyle(color: Color(0xFFE07A5F), fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF81B29A)),
+                      ],
+                    ),
+                  )
+                )).toList()
+              )
+            ],
+          ),
+        ),
+      ],
     );
   }
 

@@ -26,22 +26,28 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
     if (widget.currentEvent != null) {
       _messages.add({
         'role': 'ai',
-        'text': 'Hi! I am your guide for "${widget.currentEvent!.title}". It costs ${widget.currentEvent!.priceInMyr == 0 ? "Free Entry" : "RM ${widget.currentEvent!.priceInMyr.toInt()}"}. Ask me anything about opening hours, sustainability tips, or access!',
+        'text': 'Hi! I am your guide for "${widget.currentEvent!.title}". It costs ${widget.currentEvent!.priceInMyr == 0 ? "Free Entry" : "RM " + widget.currentEvent!.priceInMyr.toInt().toString()}. Ask me anything about opening hours, sustainability tips, or access!',
       });
     } else {
       _messages.add({
         'role': 'ai',
-        'text': 'Hello explorer! 🐯 Tap a prompt below or ask me about green heritage spots, night markets, and local eco-adventures!',
+        'text': 'Hello explorer! 🌿 Tap a prompt below or ask me about green heritage spots, night markets, and local eco-adventures!',
       });
     }
   }
 
-      void _send(String text) async {
+  void _send(String text) async {
     if (text.trim().isEmpty) return;
+
+    final isTapir = UserSettings.instance.selectedMascot.value == MascotType.tapir;
+    final String mascotName = isTapir ? 'Timo the Tapir' : 'Ollie the Tiger';
+    final String mascotEmoji = isTapir ? '🌿' : '🐯';
+    final String thinkingMsg = '$mascotName is thinking... $mascotEmoji💭';
+    final String errorMsg = 'Oops, $mascotName is taking a quick nap! $mascotEmoji💤';
 
     setState(() {
       _messages.add({'role': 'user', 'text': text});
-      _messages.add({'role': 'ai', 'text': 'Ollie is thinking... 🐯💭'});
+      _messages.add({'role': 'ai', 'text': thinkingMsg});
     });
     _controller.clear();
 
@@ -49,23 +55,21 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       if (apiKey == null) throw Exception('API Key not found in .env');
       
-      final model = GenerativeModel(model: 'gemini-3.1-flash-lite', apiKey: apiKey);
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
 
       if (widget.currentEvent == null) {
-        // To detect greetings, use a regex to match common greeting phrases.
         final isGreeting = RegExp(r'^(hi|hello|hey|how are you|你好|早安|午安)', caseSensitive: false).hasMatch(text.trim());
 
         String prompt;
 
         if (isGreeting) {
           prompt = '''
-          You are Ollie, a friendly, warm tiger mascot for the JalanJalan sustainable tourism app in Malaysia.
+          You are $mascotName, a friendly, warm mascot for the JalanJalan sustainable tourism app in Malaysia.
           The user just greeted you with: "$text".
           Respond politely, introduce yourself briefly in 1-2 friendly sentences, and ask how you can help them explore Malaysia sustainably.
-          Use 1 cute emoji.
+          Use $mascotEmoji in your response. Keep your personality ${isTapir ? 'calm, gentle, and highly eco-conscious' : 'energetic, proud, and fun'}.
           ''';
         } else {
-          // Remove emojis and special characters to extract the main interest keyword
           String interest = text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
 
           final results = await ApiService.getAiRecommendations(
@@ -74,22 +78,22 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
             interests: [interest.isEmpty ? 'General' : interest],
           );
 
-          // Create a summary of candidates for the prompt
           String candidatesSummary = results.map((e) {
-            return "- ${e['name']} (Match Score: ${((e['match_score'] ?? 0) * 100).toInt()}%)";
+            return "- ${e['name']} (Match: ${((e['match_score'] ?? 0) * 100).toInt()}%)";
           }).join("\n");
 
           prompt = '''
-          You are Ollie, an eco-conscious tiger mascot for a Malaysia travel app.
+          You are $mascotName, an eco-conscious mascot for a Malaysia travel app.
           User input: "$text".
           
-          Here are available destination options evaluated by our backend data model:
+          Here are available destination options evaluated by our backend:
           $candidatesSummary
           
           Instructions:
-          1. Pick the destination that BEST fits the user's category (e.g. if Nature, pick Farm or Firefly, NOT Night Market).
+          1. Pick the destination that BEST fits the user's category.
           2. Explain in 2 sentences why it's worth visiting and how it helps avoid tourist overcrowding.
-          3. Mention the match score. Keep the tone fun and encouraging.
+          3. Mention that it's highly recommended, but DO NOT show raw JSON scores or metadata like "Match Score: 90%". Format the response naturally for a consumer.
+          4. Use $mascotEmoji in your response. Keep your personality ${isTapir ? 'calm, gentle, and highly eco-conscious' : 'energetic, proud, and fun'}.
           ''';
         }
 
@@ -97,39 +101,55 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
 
         setState(() {
           _messages.removeLast();
-          _messages.add({'role': 'ai', 'text': response.text ?? 'Roar! How can I help you explore?'});
+          _messages.add({'role': 'ai', 'text': response.text?.replaceAll('**', '') ?? 'Roar! How can I help you explore?'});
         });
 
       } else {
-        // Detail page logic: single Q&A for the currently selected event
         final prompt = '''
-        You are Ollie, a travel companion. The user is browsing "${widget.currentEvent!.title}".
-        Location: ${widget.currentEvent!.address ?? 'Johor'}
+        You are $mascotName, a travel companion. The user is browsing "${widget.currentEvent!.title}".
+        Location: ${widget.currentEvent!.address}
         Price: RM ${widget.currentEvent!.priceInMyr.toInt()}
         Hours: ${widget.currentEvent!.openingTime ?? '09:00'} - ${widget.currentEvent!.closingTime ?? '22:00'}
         Summary: ${widget.currentEvent!.description}
 
         User inquiry: "$text".
-        Reply concisely in 1-2 sentences using this context.
+        Reply concisely in 1-2 sentences using this context. Keep your personality ${isTapir ? 'calm, gentle, and highly eco-conscious' : 'energetic, proud, and fun'}.
+        DO NOT include JSON metadata, score percentages, or raw database field names in your output. Use natural conversational language.
         ''';
 
         final response = await model.generateContent([Content.text(prompt)]);
 
         setState(() {
           _messages.removeLast();
-          _messages.add({'role': 'ai', 'text': response.text ?? 'Have a wonderful visit!'});
+          _messages.add({'role': 'ai', 'text': response.text?.replaceAll('**', '') ?? 'Have a wonderful visit!'});
         });
       }
     } catch (e) {
       setState(() {
         _messages.removeLast();
-        _messages.add({'role': 'ai', 'text': 'Oops, Ollie is taking a quick nap! 🐯💤 ($e)'});
+        _messages.add({'role': 'ai', 'text': '$errorMsg ($e)'});
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    List<Widget> suggestionChips;
+    if (widget.currentEvent != null) {
+      suggestionChips = [
+        _chip('Will it be crowded? 🚶‍♂️'),
+        _chip('What should I prepare? 🎒'),
+        _chip('Is it kid friendly? 👨‍👩‍👧'),
+      ];
+    } else {
+      suggestionChips = [
+        _chip('Free Activities 🎟️'),
+        _chip('Eco & Nature 🌿'),
+        _chip('Local Food Trail 🍜'),
+        _chip('Night Markets 🌙'),
+      ];
+    }
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.76,
       decoration: const BoxDecoration(
@@ -145,11 +165,10 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF3D405B).withValues(alpha: 0.2),
+                color: const Color(0xFF3D405B).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Row(
@@ -171,7 +190,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.currentEvent != null ? 'Event AI Guide' : 'Ollie Companion',
+                        widget.currentEvent != null ? 'Event AI Guide' : 'Companion',
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF3D405B)),
                       ),
                       Row(
@@ -198,22 +217,15 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                 ],
               ),
             ),
-            Divider(height: 1, color: const Color(0xFF3D405B).withValues(alpha: 0.1)),
-
+            Divider(height: 1, color: const Color(0xFF3D405B).withOpacity(0.1)),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
-                children: [
-                  _chip('Free Activities 🎟️'),
-                  _chip('Eco & Nature 🌿'),
-                  _chip('Local Food Trail 🍜'),
-                  _chip('Night Markets 🌙'),
-                ],
+                children: suggestionChips,
               ),
             ),
-
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
@@ -237,7 +249,7 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withOpacity(0.04),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
@@ -257,7 +269,6 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                 },
               ),
             ),
-
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
@@ -271,15 +282,15 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.white, width: 1.5),
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8),
+                            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8),
                           ],
                         ),
                         child: TextField(
                           controller: _controller,
                           style: const TextStyle(color: Color(0xFF3D405B), fontSize: 14, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
-                            hintText: 'Ask Ollie for sustainable travel tips...',
-                            hintStyle: TextStyle(color: const Color(0xFF3D405B).withValues(alpha: 0.4), fontSize: 13),
+                            hintText: 'Ask for sustainable travel tips...',
+                            hintStyle: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.4), fontSize: 13),
                             border: InputBorder.none,
                           ),
                           onSubmitted: _send,
@@ -315,8 +326,8 @@ class _MascotChatSheetState extends State<MascotChatSheet> {
           text,
           style: const TextStyle(fontSize: 11, color: Color(0xFF3D405B), fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white.withValues(alpha: 0.75),
-        side: BorderSide(color: const Color(0xFF3D405B).withValues(alpha: 0.15)),
+        backgroundColor: Colors.white.withOpacity(0.75),
+        side: BorderSide(color: const Color(0xFF3D405B).withOpacity(0.15)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         onPressed: () => _send(text),
       ),
