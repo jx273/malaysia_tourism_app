@@ -1,254 +1,105 @@
-LESTARILENS - MALAYSIA TOURISM INTELLIGENCE DASHBOARD
-DOSM DATATHON 2026
-Team: 404 NOT FOUND
+JejakLestari Intelligence
 
-======================================================================
-1. SOFTWARE AND VERSION
-======================================================================
+DOSM Datathon 2026 | Team 404 NOT FOUND
 
-Dashboard framework: Streamlit 1.64.0
-Programming language: Python 3.14.7
-AI assistant model: Gemini 3.1 Flash Lite
-Recommended browsers: Google Chrome, Microsoft Edge, or Safari
-Supported operating systems: Windows and macOS
-Display theme: Light theme only
+JejakLestari Intelligence is an interactive Malaysia tourism decision-support dashboard. It combines local DOSM tourism and socioeconomic data with transparent model evidence, capacity comparison, and an illustrative scenario tool. Its purpose is to help users move beyond headline visitor counts and examine potential, readiness, trade-offs, and evidence gaps.
 
-The deterministic dashboard, local CSV data, charts, machine-learning
-outputs, Scenario Lab, and Evidence page run locally. Internet access and
-a valid Gemini API key are required only for the optional Ollie assistant.
+Software and requirements
 
-======================================================================
-2. DASHBOARD PURPOSE
-======================================================================
+Python 3.10 or newer (tested with Python 3.12)
+Streamlit 1.64 or newer
+Local web browser (Chrome, Edge, Firefox, or Safari)
+Dependencies listed in requirements.txt
+Internet access is only required for the optional Ollie AI assistant. All dashboard data, charts, filters, model outputs, and scenario calculations run from files included in this package.
 
-LestariLens uses official Malaysian tourism and socioeconomic data to
-compare observed domestic visitor patterns with a structural
-machine-learning benchmark. It supports evidence-based tourism planning
-through five sections:
+Package layout
 
-1. Overview
-2. Visitor flows
-3. Sustainability
-4. Scenario lab
-5. Evidence
-
-The Tourism Opportunity Gap compares actual visitor share with
-model-expected visitor share. It is a structural benchmark, not a future
-forecast and not a causal estimate.
-
-======================================================================
-3. REQUIRED PROJECT STRUCTURE
-======================================================================
+Keep the following project structure unchanged. The dashboard uses relative paths to load its local files.
 
 Dashboard/
-|-- assets/
-|   `-- images/
-|       `-- tiger_sheet.png
-|-- backend/
-|   |-- app.py
-|   `-- ai_service.py
-|-- ml/
-|   `-- handoff/
-|       `-- for_hongyik/
-|           |-- sample_predictions.csv
-|           `-- state_features.csv
-|-- .streamlit/
-|   `-- config.toml
-|-- .env
-|-- .env.example
-|-- .gitignore
-|-- README.txt
-`-- requirements.txt
+├── backend/
+│   ├── app.py
+│   └── ai_service.py
+├── assets/
+│   └── images/
+│       └── tiger_sheet.png
+├── ml/
+│   └── handoff/
+│       └── for_hongyik/
+│           ├── state_features.csv
+│           └── sample_predictions.csv
+├── requirements.txt
+├── .env.example
+└── README.md
 
-Do not move the CSV or tiger sprite files. The dashboard loads them from
-the relative paths shown above.
+The final submission archive should also include a static visual document, for example Dashboard.pdf, containing high-resolution screenshots of the final interactive dashboard. The PDF is for documentation and is not interactive.
 
-======================================================================
-4. WINDOWS INSTALLATION AND STARTUP
-======================================================================
+Installation and launch
 
-1. Extract the submitted ZIP file.
-2. Open PowerShell inside the Dashboard folder.
-3. Run the following commands:
+Open a terminal in the Dashboard folder.
+
+Windows (PowerShell)
 
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
-py -m pip install -r requirements.txt
-py -m streamlit run backend/app.py
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run backend/app.py
 
-4. Open the Local URL printed in PowerShell. The usual address is:
-
-http://localhost:8501
-
-If PowerShell blocks virtual-environment activation, run this command for
-the current PowerShell session and activate the environment again:
+If PowerShell blocks activation, run the following once in the same terminal and then activate the environment again:
 
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
-======================================================================
-5. MACOS INSTALLATION AND STARTUP
-======================================================================
-
-1. Extract the submitted ZIP file.
-2. Open Terminal inside the Dashboard folder.
-3. Run the following commands:
+macOS / Linux
 
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m streamlit run backend/app.py
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run backend/app.py
 
-4. Open the Local URL printed in Terminal. The usual address is:
+Streamlit will display a local URL, normally http://localhost:8501. Open that URL in a browser. Stop the dashboard with Ctrl+C in the terminal.
 
-http://localhost:8501
+Navigation and interactive features
 
-======================================================================
-6. NAVIGATION GUIDE
-======================================================================
+Use the left sidebar to select a page and choose a single global year. The selected year is applied consistently across dashboard pages.
 
-Use the left sidebar to move between the five dashboard sections. Use the
-Global Year Filter to select 2017, 2018, 2019, 2023, 2024, or 2025.
+Page	What to explore
+Overview	National or selected-state KPIs, actual versus model-expected visitor share, opportunity-gap evidence, and the 2025 national tourism spending mix.
+Visitor flows	State visitor trajectories. Hover over lines to inspect values. The lines deliberately break between 2019 and 2023 because no observations are available for 2020–2022.
+Sustainability	Bubble comparison of visitor volume, accommodation capacity, and economic strength. Hover over a bubble for state evidence; reference lines are median benchmarks.
+Scenario lab	Select different source and target states, then adjust the percentage slider. The national total is preserved. This is an illustrative arithmetic scenario, not a forecast or predicted policy outcome.
+Evidence	Historical data, model output, methodology, validation framing, sources, and limitations.
+	Ollie assistant (optional)
 
-Overview:
-- Select Malaysia or an individual state.
-- Review visitor indicators, Tourism Opportunity Gap, evidence briefs,
-  historical state trends, and the 2025 national spending mix.
+Ollie is a page-grounded assistant that answers follow-up questions using the validated context of the current page, selected year, and selected state. Type a question in the sidebar, select a suggested follow-up, or use voice input where the browser supports it. Voice transcripts can be edited before sending.
 
-Visitor flows:
-- Compare state visitor trajectories across the available observation
-  years.
-- Lines are intentionally disconnected between 2019 and 2023 because
-  observations for 2020-2022 are unavailable.
+To enable Ollie, create a .env file in the Dashboard folder:
 
-Sustainability:
-- Compare economic strength, accommodation capacity, and visitor volume.
-- Hover over a bubble to view the state represented by that point.
-
-Scenario lab:
-- Select different source and target states.
-- Adjust the illustrative reallocation slider.
-- The calculation preserves the national visitor total.
-- The result is an arithmetic scenario, not a forecast or policy outcome.
-
-Evidence:
-- Review the methodology, limitations, historical data, and model output.
-- 2017-2019 and 2023 are model-training years.
-- 2024-2025 are untouched holdout years.
-
-Ollie assistant:
-- Type a question about the current page or select a suggested question.
-- Select the microphone button for optional voice input.
-- Stop recording, review the transcript, and use the send button.
-- Ollie uses validated page data and does not analyse screenshots.
-- The deterministic dashboard remains functional if Ollie is unavailable.
-
-======================================================================
-7. DATA COVERAGE AND SOURCES
-======================================================================
-
-Observed years: 2017-2019 and 2023-2025
-Unavailable years: 2020-2022
-
-Primary source: Department of Statistics Malaysia (DOSM)
-
-The submitted CSV files are stored locally under:
-
-ml/handoff/for_hongyik/
-
-No external database or API is needed for the dashboard data, local ML
-outputs, charts, Evidence page, or Scenario Lab.
-
-======================================================================
-8. OPTIONAL GEMINI CONFIGURATION
-======================================================================
-
-Ollie requires internet access and these variables in the project-root
-.env file:
-
-GEMINI_API_KEY=replace_with_a_valid_key
+GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-3.1-flash-lite
 
-The private judging package may contain a temporary evaluation key. The key
-must not be committed to a public repository. If the key is missing, invalid,
-rate-limited, or inaccessible, the main dashboard continues to operate and
-only Ollie becomes unavailable.
+If no key, network connection, or AI quota is available, Ollie will show an availability message. The rest of the dashboard remains fully usable.
 
-Microphone input is optional. The browser asks for microphone permission
-only after voice input is selected. Typed questions remain available when
-permission is denied or the browser does not support recording.
+Data, method, and interpretation notes
 
-======================================================================
-9. LIMITATIONS AND SPECIAL CONSIDERATIONS
-======================================================================
+Data sources are local DOSM Malaysian tourism and socioeconomic datasets supplied with this submission.
+The analysis covers 16 states and federal territories for observed years 2017–2019 and 2023–2025. There are no observations for 2020–2022; the dashboard does not interpolate or connect across this gap.
+The model compares a state's actual visitor share with its model-expected structural visitor share. The resulting Tourism Opportunity Gap is a structural benchmark.
+A positive gap is not proof of unmet demand, a marketing problem, causation, or a future forecast. It should trigger further investigation before intervention.
+Model training years are 2017–2019 and 2023. The untouched holdout period is 2024–2025.
+Perlis and W.P. Putrajaya have lower predictive reliability and should be interpreted with added caution.
+The 2025 national spending-category breakdown is a national view and does not change with the selected state.
 
-- The interface is designed and tested for the Light theme.
-- No data is available for 2020-2022.
-- The 2025 national spending-category breakdown is not applied to other
-  years or individual states.
-- Opportunity Gap is a structural benchmark, not a forecast.
-- The model does not establish the cause of an observed gap.
-- Results for Perlis and W.P. Putrajaya require additional reliability
-  caution.
-- Scenario Lab performs transparent arithmetic redistribution and does not
-  estimate behaviour, cost, feasibility, or policy impact.
-- Ollie is an optional network-connected assistant. Local ML outputs and all
-  required analytical pages are available without Ollie.
+Troubleshooting
 
-======================================================================
-10. TROUBLESHOOTING
-======================================================================
+Issue	Check
+ModuleNotFoundError	Activate .venv and rerun pip install -r requirements.txt.
+Data validation error	Confirm both CSV files are present under ml/handoff/for_hongyik/ and that the package layout has not changed.
+Ollie unavailable	Confirm .env is in the Dashboard folder, GEMINI_API_KEY is valid, and the internet/API quota is available. The dashboard itself can still be assessed without Ollie.
+Browser does not start	Copy the Streamlit local URL from the terminal into a browser.
+	Submission notes
 
-Dashboard does not start:
-- Confirm that the virtual environment is active.
-- Run: python -m pip install -r requirements.txt
-- Run: python -m py_compile backend/app.py backend/ai_service.py
-
-Data-validation error:
-- Confirm that both CSV files remain in ml/handoff/for_hongyik/.
-- Do not rename or edit their required columns.
-
-Ollie is unavailable:
-- Confirm that the computer has internet access.
-- Confirm that GEMINI_API_KEY is present and valid.
-- Restart Streamlit after changing .env.
-
-Recent changes do not appear:
-- Stop Streamlit with Ctrl+C.
-- Run: python -m streamlit cache clear
-- Start the dashboard again.
-- Refresh without browser cache using Ctrl+F5 on Windows or
-  Command+Shift+R on macOS.
-
-Microphone is unavailable:
-- Allow microphone permission for localhost in the browser.
-- Use typed input if microphone access is denied.
-
-======================================================================
-11. SUBMISSION PACKAGE
-======================================================================
-
-Recommended archive name:
-
-404NOTFOUND_Datathon2026_Dashboard.zip
-
-Recommended archive structure:
-
-404NOTFOUND_Datathon2026_Dashboard.zip
-|-- Dashboard.pdf
-|-- Dashboard/
-|   |-- backend/
-|   |-- assets/
-|   |-- ml/
-|   |-- .streamlit/
-|   |-- .env
-|   |-- .env.example
-|   |-- .gitignore
-|   `-- requirements.txt
-`-- README.txt
-
-Dashboard.pdf is the static documentation version. The Dashboard folder is
-the fully interactive Streamlit version.
-
-The submission must not contain .venv, .git, __pycache__, .DS_Store,
-temporary logs, editor settings, or old ZIP files.
-
+Submit the runnable dashboard folder, local data files, README.md, and the required static Dashboard.pdf in the competition archive.
+Do not include virtual environments (.venv/venv), Python cache folders, editor settings, or prior ZIP files.
+If a temporary Gemini key is supplied for judging, use a restricted temporary key only. Do not commit it to a public repository; revoke or replace it after judging.
