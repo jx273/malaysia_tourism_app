@@ -2,7 +2,7 @@
 # macOS setup from the project root:
 #   python -m venv .venv
 #   source .venv/bin/activate
-#   pip install -r requirements.txt
+#   pip install -r ml/requirements.txt
 
 pandas==3.0.5
 numpy==2.5.3

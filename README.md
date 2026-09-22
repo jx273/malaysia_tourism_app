@@ -6,10 +6,10 @@ JejakLestari Intelligence is an interactive Malaysia tourism decision-support da
 
 Software and requirements
 
-Python 3.10 or newer (tested with Python 3.12)
+Python 3.12 (tested for the dashboard; see ml/README.md for ML reproduction)
 Streamlit 1.64 or newer
 Local web browser (Chrome, Edge, Firefox, or Safari)
-Dependencies listed in requirements.txt
+Dependencies listed in ml/requirements.txt
 Internet access is only required for the optional Ollie AI assistant. All dashboard data, charts, filters, model outputs, and scenario calculations run from files included in this package.
 
 Package layout
@@ -24,11 +24,11 @@ Dashboard/
 │   └── images/
 │       └── tiger_sheet.png
 ├── ml/
+│   ├── requirements.txt
 │   └── handoff/
 │       └── for_hongyik/
 │           ├── state_features.csv
 │           └── sample_predictions.csv
-├── requirements.txt
 ├── .env.example
 └── README.md
 
@@ -43,7 +43,7 @@ Windows (PowerShell)
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r ml/requirements.txt
 streamlit run backend/app.py
 
 If PowerShell blocks activation, run the following once in the same terminal and then activate the environment again:
@@ -55,7 +55,7 @@ macOS / Linux
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r ml/requirements.txt
 streamlit run backend/app.py
 
 Streamlit will display a local URL, normally http://localhost:8501. Open that URL in a browser. Stop the dashboard with Ctrl+C in the terminal.
@@ -94,12 +94,13 @@ The 2025 national spending-category breakdown is a national view and does not ch
 Troubleshooting
 
 Issue	Check
-ModuleNotFoundError	Activate .venv and rerun pip install -r requirements.txt.
+ModuleNotFoundError	Activate .venv and rerun pip install -r ml/requirements.txt.
 Data validation error	Confirm both CSV files are present under ml/handoff/for_hongyik/ and that the package layout has not changed.
 Ollie unavailable	Confirm .env is in the Dashboard folder, GEMINI_API_KEY is valid, and the internet/API quota is available. The dashboard itself can still be assessed without Ollie.
 Browser does not start	Copy the Streamlit local URL from the terminal into a browser.
-	Submission notes
+Submission notes
 
+The written report is available in docs/report/ as an editable DOCX and a PDF.
 Submit the runnable dashboard folder, local data files, README.md, and the required static Dashboard.pdf in the competition archive.
 Do not include virtual environments (.venv/venv), Python cache folders, editor settings, or prior ZIP files.
 If a temporary Gemini key is supplied for judging, use a restricted temporary key only. Do not commit it to a public repository; revoke or replace it after judging.

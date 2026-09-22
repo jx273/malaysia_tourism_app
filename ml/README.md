@@ -36,14 +36,17 @@ macOS or Linux:
 source .venv/bin/activate
 ```
 
-Then install the seven pinned packages:
+Then install the dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-pandas, numpy, pyarrow, matplotlib, scikit-learn, jupyter and joblib. Nothing else is needed
-— the Excel reader for DOSM's formatted reports is written on the standard library.
+The file includes the ML packages (pandas, numpy, pyarrow, matplotlib,
+scikit-learn, jupyter and joblib) and the dashboard and optional AI dependencies.
+The Excel reader for DOSM's formatted reports uses the standard library.
+To launch the dashboard from the repository root, follow the root README and
+install the same file with `pip install -r ml/requirements.txt`.
 
 ## Reproducing everything from scratch
 
